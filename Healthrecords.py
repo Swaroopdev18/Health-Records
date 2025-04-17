@@ -172,7 +172,7 @@ def get_all_patients():
     return patients
 
 # Application title and description
-st.title("🏥 Health Record System")
+st.title("🏥Centralized Health Record System")
 st.markdown("Manage patient records with this easy-to-use interface.")
 
 # Create tabs for different functionality
