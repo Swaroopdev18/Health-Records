@@ -7,7 +7,7 @@ from datetime import datetime
 
 # Set page configuration
 st.set_page_config(
-    page_title="Health Record System",
+    page_title="health Record System",
     page_icon="🏥",
     layout="wide"
 )
