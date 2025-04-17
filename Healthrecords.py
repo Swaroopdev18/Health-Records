@@ -42,7 +42,7 @@ def initialize_database():
 initialize_database()
 
 # Database functions
-def add_patient(patient_data):
+def add_patient(Patient_data):
     """Add a new patient to the database"""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
