@@ -1,439 +1,824 @@
+# main.py
 import streamlit as st
 import pandas as pd
 import sqlite3
 import os
 import json
-from datetime import datetime
+import hashlib
+from datetime import datetime, timedelta
+import uuid
+import time
+import random
+import matplotlib.pyplot as plt
+import altair as alt
+import base64
+from PIL import Image
+import io
 
 # Set page configuration
 st.set_page_config(
-    page_title="health Record System",
+    page_title="Health Record System",
     page_icon="🏥",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Database setup
-DB_FILE = "health_records.db"
+# Create database directory if it doesn't exist
+os.makedirs("data", exist_ok=True)
+DB_FILE = "data/health_records.db"
 
+# Add custom CSS
+def local_css():
+    st.markdown("""
+    <style>
+    /* Main Container */
+    .main {
+        background-color: #f8f9fa;
+        color: #333;
+    }
+    
+    /* Headers */
+    h1, h2, h3 {
+        color: #2c3e50;
+        font-family: 'Helvetica Neue', sans-serif;
+    }
+    
+    /* Custom Card Style */
+    .card {
+        border-radius: 10px;
+        padding: 20px;
+        background-color: white;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+    
+    /* Patient Info Card */
+    .patient-card {
+        background-color: #ffffff;
+        border-left: 5px solid #4361ee;
+        padding: 15px;
+        border-radius:.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 15px;
+    }
+    
+    /* Success Callout */
+    .success-box {
+        background-color: #d4edda;
+        color: #155724;
+        padding: 15px;
+        border-radius: 5px;
+        border-left: 5px solid #28a745;
+        margin-bottom: 15px;
+    }
+    
+    /* Warning Callout */
+    .warning-box {
+        background-color: #fff3cd;
+        color: #856404;
+        padding: 15px;
+        border-radius: 5px;
+        border-left: 5px solid #ffc107;
+        margin-bottom: 15px;
+    }
+    
+    /* Info Callout */
+    .info-box {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        padding: 15px;
+        border-radius: 5px;
+        border-left: 5px solid #17a2b8;
+        margin-bottom: 15px;
+    }
+    
+    /* Beautiful Buttons */
+    .stButton>button {
+        background-color: #4361ee;
+        color: white;
+        border-radius: 6px;
+        padding: 10px 24px;
+        font-weight: 500;
+        border: none;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton>button:hover {
+        background-color: #3a56d4;
+        box-shadow: 0 5px 15px rgba(67, 97, 238, 0.3);
+    }
+    
+    /* Delete Button */
+    .delete-btn {
+        background-color: #e74c3c !important;
+    }
+    
+    .delete-btn:hover {
+        background-color: #c0392b !important;
+    }
+    
+    /* Custom Sidebar */
+    .css-1d391kg {
+        background-color: #2c3e50;
+    }
+    
+    .css-1d391kg .sidebar-content {
+        background-color: #2c3e50;
+    }
+    
+    /* Streamlit Elements */
+    div.stButton > button:first-child {
+        background-color: #4361ee;
+        color: white;
+        border-radius: 6px;
+        padding: 10px 24px;
+        font-weight: 500;
+        border: none;
+        transition: all 0.3s ease;
+    }
+    
+    div.stButton > button:hover {
+        background-color: #3a56d4;
+        box-shadow: 0 5px 15px rgba(67, 97, 238, 0.3);
+    }
+    
+    /* Alert boxes */
+    .st-emotion-cache-16idsys p {
+        font-size: 16px;
+    }
+    
+    /* Tabs styling */
+    .st-emotion-cache-1y4p8pa {
+        padding: 15px;
+        border-radius: 0 0 10px 10px;
+        border: 1px solid #e0e0e0;
+        border-top: none;
+    }
+    
+    .st-emotion-cache-1y4p8pa > div:first-child {
+        border-radius: 10px 10px 0 0;
+        overflow: hidden;
+    }
+    
+    /* Data tables */
+    .dataframe {
+        border-collapse: collapse;
+        width: 100%;
+        margin-bottom: 20px;
+    }
+    
+    .dataframe th {
+        background-color: #4361ee;
+        color: white;
+        padding: 12px;
+        text-align: left;
+    }
+    
+    .dataframe td {
+        padding: 12px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .dataframe tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+    
+    .dataframe tr:hover {
+        background-color: #e9ecef;
+    }
+    
+    /* Custom header with logo */
+    .header-container {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        background-color: white;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .header-logo {
+        width: 50px;
+        margin-right: 15px;
+    }
+    
+    .header-title {
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0;
+    }
+    
+    /* Metric cards */
+    .metric-card {
+        background-color: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #4361ee;
+        margin: 10px 0;
+    }
+    
+    .metric-label {
+        font-size: 1rem;
+        color: #6c757d;
+    }
+    
+    /* Hide streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+    """, unsafe_allow_html=True)
+
+# Apply CSS
+local_css()
+
+# Database initialization
 def initialize_database():
     """Create database and tables if they don't exist"""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # Create patients table
+    # Create users table
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS patients (
+    CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
         name TEXT NOT NULL,
-        age INTEGER,
-        gender TEXT,
-        contact_info TEXT,
-        medical_info TEXT,
-        insurance_info TEXT,
+        role TEXT NOT NULL,
+        email TEXT,
+        last_login TIMESTAMP,
         created_at TIMESTAMP,
         updated_at TIMESTAMP
     )
     ''')
     
+    # Create patients table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS patients (
+        id TEXT PRIMARY KEY,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        date_of_birth DATE,
+        gender TEXT,
+        profile_image TEXT,
+        created_at TIMESTAMP,
+        updated_at TIMESTAMP
+    )
+    ''')
+    
+    # Create contact information table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS contact_info (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        patient_id TEXT REFERENCES patients(id),
+        phone TEXT,
+        email TEXT,
+        address TEXT,
+        emergency_contact_name TEXT,
+        emergency_contact_phone TEXT,
+        created_at TIMESTAMP,
+        updated_at TIMESTAMP
+    )
+    ''')
+    
+    # Create medical history table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS medical_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        patient_id TEXT REFERENCES patients(id),
+        blood_type TEXT,
+        allergies TEXT,
+        chronic_conditions TEXT,
+        surgeries TEXT,
+        family_history TEXT,
+        created_at TIMESTAMP,
+        updated_at TIMESTAMP
+    )
+    ''')
+    
+    # Create vital signs table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS vital_signs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        patient_id TEXT REFERENCES patients(id),
+        recorded_date TIMESTAMP,
+        temperature REAL,
+        blood_pressure TEXT,
+        pulse INTEGER,
+        respiratory_rate INTEGER,
+        oxygen_saturation REAL,
+        weight REAL,
+        height REAL,
+        bmi REAL,
+        recorded_by TEXT,
+        notes TEXT,
+        created_at TIMESTAMP,
+        updated_at TIMESTAMP
+    )
+    ''')
+    
+    # Create appointments table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS appointments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        patient_id TEXT REFERENCES patients(id),
+        provider_id TEXT REFERENCES users(id),
+        appointment_date TIMESTAMP,
+        duration INTEGER,
+        status TEXT,
+        reason TEXT,
+        notes TEXT,
+        created_at TIMESTAMP,
+        updated_at TIMESTAMP
+    )
+    ''')
+    
+    # Create insurance information table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS insurance (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        patient_id TEXT REFERENCES patients(id),
+        provider TEXT,
+        policy_number TEXT,
+        group_number TEXT,
+        coverage_start_date DATE,
+        coverage_end_date DATE,
+        coverage_details TEXT,
+        created_at TIMESTAMP,
+        updated_at TIMESTAMP
+    )
+    ''')
+    
+    # Create visit records table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS visit_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        patient_id TEXT REFERENCES patients(id),
+        visit_date DATE,
+        provider_id TEXT,
+        chief_complaint TEXT,
+        diagnosis TEXT,
+        treatment_plan TEXT,
+        notes TEXT,
+        created_at TIMESTAMP,
+        updated_at TIMESTAMP
+    )
+    ''')
+    
+    # Create medication records table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS medications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        patient_id TEXT REFERENCES patients(id),
+        medication_name TEXT,
+        dosage TEXT,
+        frequency TEXT,
+        start_date DATE,
+        end_date DATE,
+        prescriber TEXT,
+        notes TEXT,
+        created_at TIMESTAMP,
+        updated_at TIMESTAMP
+    )
+    ''')
+    
+    # Insert a demo admin user if not exists
+    cursor.execute("SELECT * FROM users WHERE username = 'admin'")
+    if not cursor.fetchone():
+        # Hash the password (admin123)
+        password_hash = hashlib.sha256("admin123".encode()).hexdigest()
+        current_time = datetime.now().isoformat()
+        
+        cursor.execute('''
+        INSERT INTO users (id, username, password_hash, name, role, email, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            "USR_admin_" + str(int(time.time())),
+            "admin",
+            password_hash,
+            "Administrator",
+            "admin",
+            "admin@healthsystem.com",
+            current_time,
+            current_time
+        ))
+    
+    # Insert some demo patients if none exist
+    cursor.execute("SELECT COUNT(*) FROM patients")
+    if cursor.fetchone()[0] == 0:
+        # Sample patient data
+        patients = [
+            {
+                "id": "PAT_001",
+                "first_name": "John",
+                "last_name": "Doe",
+                "date_of_birth": "1980-05-15",
+                "gender": "Male"
+            },
+            {
+                "id": "PAT_002",
+                "first_name": "Jane",
+                "last_name": "Smith",
+                "date_of_birth": "1992-08-23",
+                "gender": "Female"
+            },
+            {
+                "id": "PAT_003",
+                "first_name": "Michael",
+                "last_name": "Johnson",
+                "date_of_birth": "1975-11-30",
+                "gender": "Male"
+            }
+        ]
+        
+        # Insert sample patients
+        for patient in patients:
+            current_time = datetime.now().isoformat()
+            
+            cursor.execute('''
+            INSERT INTO patients (id, first_name, last_name, date_of_birth, gender, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                patient["id"],
+                patient["first_name"],
+                patient["last_name"],
+                patient["date_of_birth"],
+                patient["gender"],
+                current_time,
+                current_time
+            ))
+            
+            # Insert sample contact info
+            cursor.execute('''
+            INSERT INTO contact_info (patient_id, phone, email, address, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                patient["id"],
+                f"555-{random.randint(100, 999)}-{random.randint(1000, 9999)}",
+                f"{patient['first_name'].lower()}.{patient['last_name'].lower()}@example.com",
+                f"{random.randint(100, 999)} Main St, Anytown, USA",
+                current_time,
+                current_time
+            ))
+            
+            # Insert sample medical history
+            blood_types = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
+            cursor.execute('''
+            INSERT INTO medical_history (patient_id, blood_type, allergies, chronic_conditions, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                patient["id"],
+                random.choice(blood_types),
+                "None" if random.random() > 0.3 else "Penicillin",
+                "None" if random.random() > 0.3 else "Hypertension",
+                current_time,
+                current_time
+            ))
+            
+            # Insert sample insurance info
+            cursor.execute('''
+            INSERT INTO insurance (patient_id, provider, policy_number, coverage_start_date, coverage_end_date, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                patient["id"],
+                random.choice(["BlueCross", "Aetna", "UnitedHealth", "Medicare"]),
+                f"POL-{random.randint(100000, 999999)}",
+                "2023-01-01",
+                "2023-12-31",
+                current_time,
+                current_time
+            ))
+            
+            # Insert sample vital signs (a few entries)
+            for i in range(5):
+                record_date = (datetime.now() - timedelta(days=i*30)).isoformat()
+                cursor.execute('''
+                INSERT INTO vital_signs (
+                    patient_id, recorded_date, temperature, blood_pressure, pulse, 
+                    respiratory_rate, oxygen_saturation, weight, height, bmi, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    patient["id"],
+                    record_date,
+                    round(random.uniform(97.0, 99.0), 1),  # Temperature
+                    f"{random.randint(110, 140)}/{random.randint(70, 90)}",  # Blood pressure
+                    random.randint(60, 100),  # Pulse
+                    random.randint(12, 20),  # Respiratory rate
+                    round(random.uniform(95.0, 100.0), 1),  # Oxygen
+                    round(random.uniform(140.0, 200.0), 1),  # Weight
+                    round(random.uniform(60.0, 75.0), 1),  # Height
+                    round(random.uniform(18.5, 30.0), 1),  # BMI
+                    current_time,
+                    current_time
+                ))
+    
     conn.commit()
     conn.close()
 
-# Initialize database on app start
-initialize_database()
+# Authentication functions
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
-# Database functions
-def add_patient(Patient_data):
-    """Add a new patient to the database"""
+def authenticate(username, password):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # Check if patient already exists
-    cursor.execute("SELECT id FROM patients WHERE id = ?", (patient_data['id'],))
-    if cursor.fetchone():
-        conn.close()
-        return False, "Patient ID already exists"
-    
-    # Prepare data
-    contact_info = json.dumps(patient_data.get('contact', {}))
-    medical_info = json.dumps(patient_data.get('medical', {}))
-    insurance_info = json.dumps(patient_data.get('insurance', {}))
-    current_time = datetime.now().isoformat()
-    
-    # Insert patient
-    cursor.execute('''
-    INSERT INTO patients (id, name, age, gender, contact_info, medical_info, insurance_info, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (
-        patient_data['id'],
-        patient_data['name'],
-        patient_data['age'],
-        patient_data['gender'],
-        contact_info,
-        medical_info,
-        insurance_info,
-        current_time,
-        current_time
-    ))
-    
-    conn.commit()
-    conn.close()
-    return True, "Patient added successfully"
-
-def get_patient(patient_id):
-    """Get a patient by ID"""
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row  # Return rows as dictionaries
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-    SELECT * FROM patients WHERE id = ?
-    ''', (patient_id,))
-    
-    row = cursor.fetchone()
+    cursor.execute('SELECT id, password_hash, role, name FROM users WHERE username = ?', (username,))
+    user = cursor.fetchone()
     conn.close()
     
-    if row:
-        # Convert row to dict and parse JSON fields
-        patient = dict(row)
-        patient['contact'] = json.loads(patient['contact_info'])
-        patient['medical'] = json.loads(patient['medical_info'])
-        patient['insurance'] = json.loads(patient['insurance_info'])
-        return patient
-    
+    if user and user[1] == hash_password(password):
+        return {'user_id': user[0], 'role': user[2], 'name': user[3]}
     return None
 
-def update_patient(patient_id, updated_data):
-    """Update an existing patient"""
+def update_last_login(user_id):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # Check if patient exists
-    cursor.execute("SELECT id FROM patients WHERE id = ?", (patient_id,))
-    if not cursor.fetchone():
-        conn.close()
-        return False, "Patient not found"
-    
-    # Prepare data
-    contact_info = json.dumps(updated_data.get('contact', {}))
-    medical_info = json.dumps(updated_data.get('medical', {}))
-    insurance_info = json.dumps(updated_data.get('insurance', {}))
     current_time = datetime.now().isoformat()
-    
-    # Update patient
-    cursor.execute('''
-    UPDATE patients 
-    SET name = ?, age = ?, gender = ?, contact_info = ?, medical_info = ?, insurance_info = ?, updated_at = ?
-    WHERE id = ?
-    ''', (
-        updated_data['name'],
-        updated_data['age'],
-        updated_data['gender'],
-        contact_info,
-        medical_info,
-        insurance_info,
-        current_time,
-        patient_id
-    ))
+    cursor.execute('UPDATE users SET last_login = ? WHERE id = ?', (current_time, user_id))
     
     conn.commit()
     conn.close()
-    return True, "Patient updated successfully"
 
-def delete_patient(patient_id):
-    """Delete a patient by ID"""
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    
-    # Check if patient exists
-    cursor.execute("SELECT id FROM patients WHERE id = ?", (patient_id,))
-    if not cursor.fetchone():
-        conn.close()
-        return False, "Patient not found"
-    
-    # Delete patient
-    cursor.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
-    
-    conn.commit()
-    conn.close()
-    return True, "Patient deleted successfully"
+# Health System Logo
+def get_health_logo():
+    # This function creates a simple logo for the health system
+    logo_svg = '''
+    <svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="50" height="50" rx="10" fill="#4361ee" />
+        <path d="M25 10 L25 40 M10 25 L40 25" stroke="white" stroke-width="5" />
+    </svg>
+    '''
+    return "data:image/svg+xml;base64," + base64.b64encode(logo_svg.encode()).decode()
 
-def get_all_patients():
-    """Get all patients summary"""
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+# Login page
+def login_page():
+    # Create two-column layout
+    col1, col2 = st.columns([1, 1])
     
-    cursor.execute("SELECT id, name, age, gender, created_at FROM patients ORDER BY name")
+    with col1:
+        st.markdown(f'<div class="header-container"><img src="{get_health_logo()}" class="header-logo" /><h1 class="header-title">Health Record System</h1></div>', unsafe_allow_html=True)
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.markdown("### Welcome to the Health Record System")
+        st.markdown("Manage patient records, appointments, and medical history with ease.")
+        st.markdown("#### Features:")
+        st.markdown("• Complete patient profiles<br>• Medical history tracking<br>• Vital signs monitoring<br>• Appointment scheduling<br>• Advanced reporting", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
     
-    rows = cursor.fetchall()
-    patients = [dict(row) for row in rows]
-    
-    conn.close()
-    return patients
-
-# Application title and description
-st.title("🏥Centralized Health Record System")
-st.markdown("Manage patient records with this easy-to-use interface.")
-
-# Create tabs for different functionality
-tab1, tab2, tab3, tab4 = st.tabs(["Add Patient", "View Patient", "Update Patient", "Delete Patient"])
-
-# Tab 1: Add Patient
-with tab1:
-    st.header("Add New Patient")
-    
-    # Create form for adding patient
-    with st.form("add_patient_form"):
-        patient_id = st.text_input("Patient ID*", key="add_id")
-        name = st.text_input("Full Name*", key="add_name")
-        age = st.number_input("Age", min_value=0, max_value=120, key="add_age")
-        gender = st.selectbox("Gender", ["Male", "Female", "Other"], key="add_gender")
+    with col2:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("Login")
         
-        # Contact information
-        st.subheader("Contact Information")
-        phone = st.text_input("Phone Number", key="add_phone")
-        email = st.text_input("Email", key="add_email")
-        address = st.text_area("Address", key="add_address")
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
         
-        # Medical details
-        st.subheader("Medical Information")
-        blood_type = st.selectbox("Blood Type", ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"], key="add_blood")
-        allergies = st.text_area("Allergies", key="add_allergies")
-        medical_conditions = st.text_area("Existing Medical Conditions", key="add_conditions")
-        
-        # Insurance details
-        st.subheader("Insurance Details")
-        insurance_provider = st.text_input("Insurance Provider", key="add_provider")
-        insurance_id = st.text_input("Insurance ID", key="add_insurance_id")
-        
-        submit_button = st.form_submit_button("Add Patient")
-        
-        if submit_button:
-            if not patient_id or not name:
-                st.error("Patient ID and Full Name are required!")
-            else:
-                # Create patient data dictionary
-                patient_data = {
-                    "id": patient_id,
-                    "name": name,
-                    "age": age,
-                    "gender": gender,
-                    "contact": {
-                        "phone": phone,
-                        "email": email,
-                        "address": address
-                    },
-                    "medical": {
-                        "blood_type": blood_type,
-                        "allergies": allergies,
-                        "conditions": medical_conditions
-                    },
-                    "insurance": {
-                        "provider": insurance_provider,
-                        "id": insurance_id
-                    }
-                }
-                
-                success, message = add_patient(patient_data)
-                if success:
-                    st.success(f"✅ {message}")
+        if st.button("Login"):
+            if username and password:
+                user = authenticate(username, password)
+                if user:
+                    st.session_state.user = user
+                    st.session_state.authenticated = True
+                    update_last_login(user['user_id'])
+                    st.experimental_rerun()
                 else:
-                    st.error(f"❌ {message}")
-
-# Tab 2: View Patient
-with tab2:
-    st.header("View Patient Records")
-    
-    # Create a search box for patient ID
-    search_patient_id = st.text_input("Enter Patient ID to search", key="search_id")
-    search_button = st.button("Search")
-    
-    if search_button and search_patient_id:
-        patient_data = get_patient(search_patient_id)
-        if patient_data:
-            # Display patient information
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Personal Information")
-                st.write(f"**Name:** {patient_data.get('name')}")
-                st.write(f"**ID:** {patient_data.get('id')}")
-                st.write(f"**Age:** {patient_data.get('age')}")
-                st.write(f"**Gender:** {patient_data.get('gender')}")
-                
-                st.subheader("Contact Information")
-                contact = patient_data.get('contact', {})
-                st.write(f"**Phone:** {contact.get('phone', 'N/A')}")
-                st.write(f"**Email:** {contact.get('email', 'N/A')}")
-                st.write(f"**Address:** {contact.get('address', 'N/A')}")
-            
-            with col2:
-                st.subheader("Medical Information")
-                medical = patient_data.get('medical', {})
-                st.write(f"**Blood Type:** {medical.get('blood_type', 'N/A')}")
-                st.write("**Allergies:**")
-                st.write(medical.get('allergies', 'None'))
-                st.write("**Medical Conditions:**")
-                st.write(medical.get('conditions', 'None'))
-                
-                st.subheader("Insurance Details")
-                insurance = patient_data.get('insurance', {})
-                st.write(f"**Provider:** {insurance.get('provider', 'N/A')}")
-                st.write(f"**Insurance ID:** {insurance.get('id', 'N/A')}")
-            
-            # Record timestamps
-            st.divider()
-            st.caption(f"Created: {patient_data.get('created_at')}")
-            st.caption(f"Last Updated: {patient_data.get('updated_at')}")
-            
-            # Show JSON data option
-            if st.checkbox("Show Raw Data"):
-                st.json(patient_data)
-        else:
-            st.error("Patient not found!")
-    
-    # Option to view all patients
-    if st.button("View All Patients"):
-        patients_list = get_all_patients()
+                    st.error("Invalid username or password")
+            else:
+                st.warning("Please enter both username and password")
         
-        if patients_list:
+        st.markdown("<div class='info-box'>Default admin credentials:<br>Username: admin<br>Password: admin123</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# Main Navigation
+def main_navigation():
+    # Show header with logo and user info
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        st.markdown(f'<div class="header-container"><img src="{get_health_logo()}" class="header-logo" /><h1 class="header-title">Health Record System</h1></div>', unsafe_allow_html=True)
+    
+    with col2:
+        # Display user info and logout button
+        st.markdown(f"<div style='text-align: right; padding: 10px;'>Logged in as <b>{st.session_state.user['name']}</b> ({st.session_state.user['role']})</div>", unsafe_allow_html=True)
+        if st.button("Logout"):
+            st.session_state.clear()
+            st.experimental_rerun()
+    
+    # Navigation menu
+    menu_options = ["Dashboard", "Patients", "Appointments", "Vitals", "Reports", "Settings"]
+    selected_option = st.sidebar.selectbox("Navigation", menu_options)
+    
+    return selected_option
+
+# Dashboard
+def dashboard_page():
+    st.header("Dashboard")
+    
+    # Dashboard metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    
+    # Total patients
+    cursor.execute("SELECT COUNT(*) FROM patients")
+    patient_count = cursor.fetchone()[0]
+    
+    # Total appointments
+    cursor.execute("SELECT COUNT(*) FROM appointments")
+    appointment_count = cursor.fetchone()[0]
+    
+    # Recent appointments
+    cursor.execute("SELECT COUNT(*) FROM appointments WHERE appointment_date >= date('now', '-7 days')")
+    recent_appointments = cursor.fetchone()[0]
+    
+    # Recent patient registrations
+    cursor.execute("SELECT COUNT(*) FROM patients WHERE created_at >= datetime('now', '-30 days')")
+    new_patients = cursor.fetchone()[0]
+    
+    conn.close()
+    
+    with col1:
+        st.markdown(f'''
+        <div class="metric-card">
+            <div class="metric-label">Total Patients</div>
+            <div class="metric-value">{patient_count}</div>
+        </div>
+        ''', unsafe_allow_html=True)
+        
+    with col2:
+        st.markdown(f'''
+        <div class="metric-card">
+            <div class="metric-label">Upcoming Appointments</div>
+            <div class="metric-value">{appointment_count}</div>
+        </div>
+        ''', unsafe_allow_html=True)
+        
+    with col3:
+        st.markdown(f'''
+        <div class="metric-card">
+            <div class="metric-label">Last 7 Days Appointments</div>
+            <div class="metric-value">{recent_appointments}</div>
+        </div>
+        ''', unsafe_allow_html=True)
+        
+    with col4:
+        st.markdown(f'''
+        <div class="metric-card">
+            <div class="metric-label">New Patients (30 days)</div>
+            <div class="metric-value">{new_patients}</div>
+        </div>
+        ''', unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Recent patients and appointments
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("Recent Patients")
+        
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+        SELECT p.id, p.first_name, p.last_name, p.gender, p.created_at
+        FROM patients p
+        ORDER BY p.created_at DESC
+        LIMIT 5
+        ''')
+        
+        recent_patients = cursor.fetchall()
+        conn.close()
+        
+        if recent_patients:
             # Create a DataFrame for display
-            df = pd.DataFrame([
+            df_patients = pd.DataFrame([
                 {
-                    "ID": p["id"],
-                    "Name": p["name"],
-                    "Age": p["age"],
-                    "Gender": p["gender"],
-                    "Created": p["created_at"]
-                } for p in patients_list
+                    "ID": p[0],
+                    "Name": f"{p[1]} {p[2]}",
+                    "Gender": p[3],
+                    "Registered": p[4].split('T')[0] if 'T' in p[4] else p[4]
+                } for p in recent_patients
             ])
             
-            st.dataframe(df)
-            st.caption(f"Total Patients: {len(patients_list)}")
+            st.dataframe(df_patients)
         else:
-            st.info("No patients found in the database.")
-
-# Tab 3: Update Patient
-with tab3:
-    st.header("Update Patient Record")
+            st.info("No patients in the system.")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
     
-    # First get the patient ID
-    update_patient_id = st.text_input("Enter Patient ID to update", key="update_id")
-    search_update_button = st.button("Search for Update")
-    
-    if search_update_button and update_patient_id:
-        patient_data = get_patient(update_patient_id)
-        if patient_data:
-            st.success(f"Found patient: {patient_data.get('name')}")
+    with col2:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("Upcoming Appointments")
+        
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+        SELECT a.id, p.first_name, p.last_name, a.appointment_date, a.status
+        FROM appointments a
+        JOIN patients p ON a.patient_id = p.id
+        WHERE a.appointment_date >= datetime('now')
+        ORDER BY a.appointment_date ASC
+        LIMIT 5
+        ''')
+        
+        upcoming_appointments = cursor.fetchall()
+        conn.close()
+        
+        if upcoming_appointments:
+            # Create a DataFrame for display
+            df_appointments = pd.DataFrame([
+                {
+                    "ID": a[0],
+                    "Patient": f"{a[1]} {a[2]}",
+                    "Date": a[3].split('T')[0] if 'T' in a[3] else a[3],
+                    "Time": a[3].split('T')[1][:5] if 'T' in a[3] else "",
+                    "Status": a[4]
+                } for a in upcoming_appointments
+            ])
             
-            # Create form with existing data
-            with st.form("update_patient_form"):
-                name = st.text_input("Full Name", value=patient_data.get('name', ''), key="update_name")
-                age = st.number_input("Age", min_value=0, max_value=120, value=patient_data.get('age', 0), key="update_age")
-                gender = st.selectbox("Gender", ["Male", "Female", "Other"], 
-                                     index=["Male", "Female", "Other"].index(patient_data.get('gender', 'Male')), 
-                                     key="update_gender")
-                
-                # Contact information
-                st.subheader("Contact Information")
-                contact = patient_data.get('contact', {})
-                phone = st.text_input("Phone Number", value=contact.get('phone', ''), key="update_phone")
-                email = st.text_input("Email", value=contact.get('email', ''), key="update_email")
-                address = st.text_area("Address", value=contact.get('address', ''), key="update_address")
-                
-                # Medical details
-                st.subheader("Medical Information")
-                medical = patient_data.get('medical', {})
-                blood_options = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
-                blood_index = blood_options.index(medical.get('blood_type')) if medical.get('blood_type') in blood_options else 0
-                blood_type = st.selectbox("Blood Type", blood_options, index=blood_index, key="update_blood")
-                allergies = st.text_area("Allergies", value=medical.get('allergies', ''), key="update_allergies")
-                medical_conditions = st.text_area("Existing Medical Conditions", value=medical.get('conditions', ''), key="update_conditions")
-                
-                # Insurance details
-                st.subheader("Insurance Details")
-                insurance = patient_data.get('insurance', {})
-                insurance_provider = st.text_input("Insurance Provider", value=insurance.get('provider', ''), key="update_provider")
-                insurance_id = st.text_input("Insurance ID", value=insurance.get('id', ''), key="update_insurance_id")
-                
-                update_submit_button = st.form_submit_button("Update Patient")
-                
-                if update_submit_button:
-                    # Create updated patient data dictionary
-                    updated_data = {
-                        "name": name,
-                        "age": age,
-                        "gender": gender,
-                        "contact": {
-                            "phone": phone,
-                            "email": email,
-                            "address": address
-                        },
-                        "medical": {
-                            "blood_type": blood_type,
-                            "allergies": allergies,
-                            "conditions": medical_conditions
-                        },
-                        "insurance": {
-                            "provider": insurance_provider,
-                            "id": insurance_id
-                        }
-                    }
-                    
-                    success, message = update_patient(update_patient_id, updated_data)
-                    if success:
-                        st.success(f"✅ {message}")
-                    else:
-                        st.error(f"❌ {message}")
+            st.dataframe(df_appointments)
         else:
-            st.error("Patient not found!")
-
-# Tab 4: Delete Patient
-with tab4:
-    st.header("Delete Patient Record")
+            st.info("No upcoming appointments.")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
     
-    delete_patient_id = st.text_input("Enter Patient ID to delete", key="delete_id")
+    # Charts section
+    st.markdown("---")
+    st.subheader("Analytics")
     
-    if delete_patient_id:
-        # Try to fetch the patient first to show details
-        patient_data = get_patient(delete_patient_id)
-        if patient_data:
-            st.warning(f"You are about to delete the record for: **{patient_data.get('name')}**")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("Patient Gender Distribution")
+        
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+        SELECT gender, COUNT(*) as count
+        FROM patients
+        GROUP BY gender
+        ''')
+        
+        gender_data = cursor.fetchall()
+        conn.close()
+        
+        if gender_data:
+            gender_df = pd.DataFrame([
+                {
+                    "Gender": g[0],
+                    "Count": g[1]
+                } for g in gender_data
+            ])
             
-            # Add a confirmation check before deleting
-            confirm_delete = st.checkbox("I confirm I want to delete this patient record", key="confirm_delete")
-            
-            delete_button = st.button("Delete Patient")
-            
-            if delete_button:
-                if not confirm_delete:
-                    st.warning("Please confirm deletion by checking the confirmation box")
-                else:
-                    success, message = delete_patient(delete_patient_id)
-                    if success:
-                        st.success(f"✅ {message}")
-                    else:
-                        st.error(f"❌ {message}")
+            fig, ax = plt.subplots()
+            ax.pie(gender_df['Count'], labels=gender_df['Gender'], autopct='%1.1f%%', startangle=90)
+            ax.axis('equal')
+            st.pyplot(fig)
         else:
-            if st.button("Search"):
-                st.error("Patient not found!")
+            st.info("No patient data available for chart.")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("Appointments by Status")
+        
+        # Sample data for appointments
+        appointment_status = ["Scheduled", "Completed", "Cancelled", "No-show"]
+        status_counts = [random.randint(5, 15) for _ in range(4)]
+        
+        status_df = pd.DataFrame({
+            "Status": appointment_status,
+            "Count": status_counts
+        })
+        
+        status_chart = alt.Chart(status_df).mark_bar().encode(
+            x='Status',
+            y='Count',
+            color=alt.Color('Status', scale=alt.Scale(scheme='blues'))
+        ).properties(
+            width=400,
+            height=300
+        )
+        
+        st.altair_chart(status_chart, use_container_width=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
 
-# Add a footer
-st.markdown("---")
-st.markdown("© 2025 Health Record System - SQLite Edition")
-
-# Display database stats
-if st.sidebar.checkbox("Show Database Stats"):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM patients")
-    count = cursor.fetchone()[0]
-    conn.close()
-    
-    st.sidebar.metric("Total Patients", count)
-    
-    if os.path.exists(DB_FILE):
-        file_size = round(os.path.getsize(DB_FILE) / 1024, 2)
-        st.sidebar.metric("Database Size", f"{file_size} KB")
-    
-    st.sidebar.caption(f"Database: {DB_FILE}")
+# patients management 
