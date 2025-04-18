@@ -821,4 +821,1128 @@ def dashboard_page():
         
         st.markdown("</div>", unsafe_allow_html=True)
 
-# patients management 
+# patients management section 
+def patients_page():
+    st.header("Patient Management")
+    
+    # Create tabs for different patient functions
+    tab1, tab2, tab3, tab4 = st.tabs(["Search Patients", "Add Patient", "Update Patient", "Delete Patient"])
+    
+    # Tab 1: Search Patients
+    with tab1:
+        st.subheader("Search Patients")
+        
+        # Search options
+        search_col1, search_col2 = st.columns([3, 1])
+        
+        with search_col1:
+            search_term = st.text_input("Search by ID, Name or Phone", key="search_patient")
+        
+        with search_col2:
+            search_button = st.button("Search")
+
+if search_button and search_term:
+            conn = sqlite3.connect(DB_FILE)
+            cursor = conn.cursor()
+            
+            # Search in patients table
+            cursor.execute('''
+            SELECT p.id, p.first_name, p.last_name, p.gender, p.date_of_birth, c.phone
+            FROM patients p
+            LEFT JOIN contact_info c ON p.id = c.patient_id
+            WHERE p.id LIKE ? OR p.first_name LIKE ? OR p.last_name LIKE ? OR c.phone LIKE ?
+            ''', (f'%{search_term}%', f'%{search_term}%', f'%{search_term}%', f'%{search_term}%'))
+            
+            search_results = cursor.fetchall()
+            conn.close()
+            
+            if search_results:
+                st.success(f"Found {len(search_results)} matching patients")
+# Display search results
+                for result in search_results:
+                    patient_id, first_name, last_name, gender, dob, phone = result
+                    
+                    st.markdown(f'''
+                    <div class="patient-card">
+                        <div style="display: flex; justify-content: space-between;">
+                            <div>
+                                <strong>{first_name} {last_name}</strong> ({gender})
+                                <br>ID: {patient_id}
+                                <br>DOB: {dob if dob else 'Not available'}
+                                <br>Phone: {phone if phone else 'Not available'}
+                            </div>
+                            <div>
+                                <form action="" method="get" target="_self">
+                                    <input type="hidden" name="view_patient_id" value="{patient_id}">
+                                    <button type="submit" style="background-color: #4361ee; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">
+                                        View Details
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    ''', unsafe_allow_html=True)
+            else:
+                st.warning(f"No patients found matching '{search_term}'")
+        
+        # Patient detail view (when selected from search)
+        if 'view_patient_id' in st.experimental_get_query_params():
+            patient_id = st.experimental_get_query_params()['view_patient_id'][0]
+            
+            conn = sqlite3.connect(DB_FILE)
+            cursor = conn.cursor()
+            
+            # Get patient details
+            cursor.execute('''
+            SELECT p.id, p.first_name, p.last_name, p.gender, p.date_of_birth,
+                   c.phone, c.email, c.address, c.emergency_contact_name, c.emergency_contact_phone,
+                   m.blood_type, m.allergies, m.chronic_conditions
+            FROM patients p
+            LEFT JOIN contact_info c ON p.id = c.patient_id
+            LEFT JOIN medical_history m ON p.id = m.patient_id
+            WHERE p.id = ?
+            ''', (patient_id,))
+            
+            patient_details = cursor.fetchone()
+            
+            if patient_details:
+                p_id, f_name, l_name, gender, dob, phone, email, address, emerg_name, emerg_phone, blood_type, allergies, conditions = patient_details
+                
+                st.markdown("<div class='card'>", unsafe_allow_html=True)
+                st.subheader(f"Patient Details: {f_name} {l_name}")
+                
+                # Create columns for layout
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("##### Personal Information")
+                    st.markdown(f"**ID:** {p_id}")
+                    st.markdown(f"**Name:** {f_name} {l_name}")
+                    st.markdown(f"**Gender:** {gender}")
+                    st.markdown(f"**Date of Birth:** {dob}")
+                    
+                    st.markdown("##### Contact Information")
+                    st.markdown(f"**Phone:** {phone if phone else 'Not available'}")
+                    st.markdown(f"**Email:** {email if email else 'Not available'}")
+                    st.markdown(f"**Address:** {address if address else 'Not available'}")
+                
+                with col2:
+                    st.markdown("##### Emergency Contact")
+                    st.markdown(f"**Name:** {emerg_name if emerg_name else 'Not available'}")
+                    st.markdown(f"**Phone:** {emerg_phone if emerg_phone else 'Not available'}")
+                    
+                    st.markdown("##### Medical Information")
+                    st.markdown(f"**Blood Type:** {blood_type if blood_type else 'Not available'}")
+                    st.markdown(f"**Allergies:** {allergies if allergies else 'None'}")
+                    st.markdown(f"**Chronic Conditions:** {conditions if conditions else 'None'}")
+                
+                # Get patient vital signs history
+                cursor.execute('''
+                SELECT recorded_date, temperature, blood_pressure, pulse, oxygen_saturation, weight
+                FROM vital_signs
+                WHERE patient_id = ?
+                ORDER BY recorded_date DESC
+                LIMIT 5
+                ''', (patient_id,))
+                
+                vitals = cursor.fetchall()
+                
+                if vitals:
+                    st.markdown("##### Recent Vital Signs")
+                    vitals_df = pd.DataFrame([
+                        {
+                            "Date": v[0].split('T')[0] if 'T' in v[0] else v[0],
+                            "Temperature": f"{v[1]} °F" if v[1] else "N/A",
+                            "Blood Pressure": v[2] if v[2] else "N/A",
+                            "Pulse": v[3] if v[3] else "N/A",
+                            "O2 Sat": f"{v[4]}%" if v[4] else "N/A",
+                            "Weight": f"{v[5]} lbs" if v[5] else "N/A"
+                        } for v in vitals
+                    ])
+                    st.dataframe(vitals_df)
+                
+                # Get patient medications
+                cursor.execute('''
+                SELECT medication_name, dosage, frequency, start_date, end_date
+                FROM medications
+                WHERE patient_id = ?
+                ORDER BY start_date DESC
+                ''', (patient_id,))
+                
+                medications = cursor.fetchall()
+                
+                if medications:
+                    st.markdown("##### Current Medications")
+                    meds_df = pd.DataFrame([
+                        {
+                            "Medication": m[0],
+                            "Dosage": m[1],
+                            "Frequency": m[2],
+                            "Start Date": m[3],
+                            "End Date": m[4] if m[4] else "Ongoing"
+                        } for m in medications
+                    ])
+                    st.dataframe(meds_df)
+                
+                # Get patient appointments
+                cursor.execute('''
+                SELECT appointment_date, duration, status, reason
+                FROM appointments
+                WHERE patient_id = ?
+                ORDER BY appointment_date DESC
+                LIMIT 5
+                ''', (patient_id,))
+                
+                appointments = cursor.fetchall()
+                
+                if appointments:
+                    st.markdown("##### Recent Appointments")
+                    appt_df = pd.DataFrame([
+                        {
+                            "Date": a[0].split('T')[0] if 'T' in a[0] else a[0],
+                            "Time": a[0].split('T')[1][:5] if 'T' in a[0] else "",
+                            "Duration": f"{a[1]} min",
+                            "Status": a[2],
+                            "Reason": a[3]
+                        } for a in appointments
+                    ])
+                    st.dataframe(appt_df)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+            
+            conn.close()
+    
+    # Tab 2: Add Patient
+    with tab2:
+        st.subheader("Add New Patient")
+        
+        # Create a form for adding new patient
+        with st.form("add_patient_form"):
+            # Personal Information
+            st.markdown("##### Personal Information")
+            cols = st.columns(2)
+            with cols[0]:
+                first_name = st.text_input("First Name*")
+            with cols[1]:
+                last_name = st.text_input("Last Name*")
+            
+            cols = st.columns(2)
+            with cols[0]:
+                gender = st.selectbox("Gender", ["Male", "Female", "Other", "Prefer not to say"])
+            with cols[1]:
+                dob = st.date_input("Date of Birth")
+            
+            # Contact Information
+            st.markdown("---")
+            st.markdown("##### Contact Information")
+            cols = st.columns(2)
+            with cols[0]:
+                phone = st.text_input("Phone Number")
+            with cols[1]:
+                email = st.text_input("Email Address")
+            
+            address = st.text_area("Address", height=100)
+            
+            # Emergency Contact
+            st.markdown("---")
+            st.markdown("##### Emergency Contact")
+            cols = st.columns(2)
+            with cols[0]:
+                emergency_name = st.text_input("Contact Name")
+            with cols[1]:
+                emergency_phone = st.text_input("Contact Phone")
+            
+            # Medical Information
+            st.markdown("---")
+            st.markdown("##### Medical Information")
+            cols = st.columns(3)
+            with cols[0]:
+                blood_type = st.selectbox("Blood Type", ["", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"])
+            with cols[1]:
+                allergies = st.text_input("Allergies")
+            with cols[2]:
+                conditions = st.text_input("Chronic Conditions")
+            
+            # Submit button
+            submitted = st.form_submit_button("Add Patient")
+            if submitted:
+                if first_name and last_name:
+                    # Generate patient ID
+                    patient_id = f"PAT_{str(uuid.uuid4())[:8]}"
+                    current_time = datetime.now().isoformat()
+                    
+                    conn = sqlite3.connect(DB_FILE)
+                    cursor = conn.cursor()
+                    
+                    try:
+                        # Insert patient basic info
+                        cursor.execute('''
+                        INSERT INTO patients (id, first_name, last_name, date_of_birth, gender, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ''', (
+                            patient_id,
+                            first_name,
+                            last_name,
+                            dob.isoformat(),
+                            gender,
+                            current_time,
+                            current_time
+                        ))
+                        
+                        # Insert contact info
+                        cursor.execute('''
+                        INSERT INTO contact_info (patient_id, phone, email, address, emergency_contact_name, emergency_contact_phone, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        ''', (
+                            patient_id,
+                            phone,
+                            email,
+                            address,
+                            emergency_name,
+                            emergency_phone,
+                            current_time,
+                            current_time
+                        ))
+                        
+                        # Insert medical history
+                        cursor.execute('''
+                        INSERT INTO medical_history (patient_id, blood_type, allergies, chronic_conditions, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        ''', (
+                            patient_id,
+                            blood_type,
+                            allergies,
+                            conditions,
+                            current_time,
+                            current_time
+                        ))
+                        
+                        conn.commit()
+                        st.success(f"Patient {first_name} {last_name} added successfully with ID: {patient_id}")
+                    
+                    except sqlite3.Error as e:
+                        st.error(f"Database error: {e}")
+                    finally:
+                        conn.close()
+                else:
+                    st.warning("First and last names are required")
+    
+    # Tab 3: Update Patient
+    with tab3:
+        st.subheader("Update Patient")
+        
+        # Search for patient to update
+        update_search = st.text_input("Enter Patient ID or Name to Update", key="update_search")
+        
+        if update_search:
+            conn = sqlite3.connect(DB_FILE)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+            SELECT id, first_name, last_name
+            FROM patients
+            WHERE id LIKE ? OR first_name LIKE ? OR last_name LIKE ?
+            ''', (f'%{update_search}%', f'%{update_search}%', f'%{update_search}%'))
+            
+            patient_results = cursor.fetchall()
+            
+            if patient_results:
+                update_patient_id = st.selectbox(
+                    "Select Patient to Update",
+                    options=[p[0] for p in patient_results],
+                    format_func=lambda x: f"{x} - {next((p[1] + ' ' + p[2] for p in patient_results if p[0] == x), '')}"
+                )
+                
+                if update_patient_id:
+                    # Get current patient data
+                    cursor.execute('''
+                    SELECT p.id, p.first_name, p.last_name, p.gender, p.date_of_birth,
+                           c.phone, c.email, c.address, c.emergency_contact_name, c.emergency_contact_phone,
+                           m.blood_type, m.allergies, m.chronic_conditions
+                    FROM patients p
+                    LEFT JOIN contact_info c ON p.id = c.patient_id
+                    LEFT JOIN medical_history m ON p.id = m.patient_id
+                    WHERE p.id = ?
+                    ''', (update_patient_id,))
+                    
+                    patient_data = cursor.fetchone()
+                    
+                    if patient_data:
+                        p_id, f_name, l_name, gender, dob, phone, email, address, emerg_name, emerg_phone, blood_type, allergies, conditions = patient_data
+                        
+                        with st.form("update_patient_form"):
+                            # Personal Information
+                            st.markdown("##### Personal Information")
+                            cols = st.columns(2)
+                            with cols[0]:
+                                new_first_name = st.text_input("First Name*", value=f_name)
+                            with cols[1]:
+                                new_last_name = st.text_input("Last Name*", value=l_name)
+                            
+                            cols = st.columns(2)
+                            with cols[0]:
+                                new_gender = st.selectbox("Gender", ["Male", "Female", "Other", "Prefer not to say"], index=["Male", "Female", "Other", "Prefer not to say"].index(gender) if gender else 0)
+                            with cols[1]:
+                                new_dob = st.date_input("Date of Birth", value=datetime.fromisoformat(dob) if dob else datetime.now())
+                            
+                            # Contact Information
+                            st.markdown("---")
+                            st.markdown("##### Contact Information")
+                            cols = st.columns(2)
+                            with cols[0]:
+                                new_phone = st.text_input("Phone Number", value=phone if phone else "")
+                            with cols[1]:
+                                new_email = st.text_input("Email Address", value=email if email else "")
+                            
+                            new_address = st.text_area("Address", value=address if address else "", height=100)
+                            
+                            # Emergency Contact
+                            st.markdown("---")
+                            st.markdown("##### Emergency Contact")
+                            cols = st.columns(2)
+                            with cols[0]:
+                                new_emergency_name = st.text_input("Contact Name", value=emerg_name if emerg_name else "")
+                            with cols[1]:
+                                new_emergency_phone = st.text_input("Contact Phone", value=emerg_phone if emerg_phone else "")
+                            
+                            # Medical Information
+                            st.markdown("---")
+                            st.markdown("##### Medical Information")
+                            cols = st.columns(3)
+                            with cols[0]:
+                                blood_types = ["", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
+                                new_blood_type = st.selectbox("Blood Type", blood_types, index=blood_types.index(blood_type) if blood_type in blood_types else 0)
+                            with cols[1]:
+                                new_allergies = st.text_input("Allergies", value=allergies if allergies else "")
+                            with cols[2]:
+                                new_conditions = st.text_input("Chronic Conditions", value=conditions if conditions else "")
+                            
+                            # Submit button
+                            update_submitted = st.form_submit_button("Update Patient")
+                            
+                            if update_submitted:
+                                if new_first_name and new_last_name:
+                                    current_time = datetime.now().isoformat()
+                                    
+                                    try:
+                                        # Update patient basic info
+                                        cursor.execute('''
+                                        UPDATE patients SET
+                                            first_name = ?,
+                                            last_name = ?,
+                                            date_of_birth = ?,
+                                            gender = ?,
+                                            updated_at = ?
+                                        WHERE id = ?
+                                        ''', (
+                                            new_first_name,
+                                            new_last_name,
+                                            new_dob.isoformat(),
+                                            new_gender,
+                                            current_time,
+                                            update_patient_id
+                                        ))
+                                        
+                                        # Update contact info
+                                        cursor.execute('''
+                                        UPDATE contact_info SET
+                                            phone = ?,
+                                            email = ?,
+                                            address = ?,
+                                            emergency_contact_name = ?,
+                                            emergency_contact_phone = ?,
+                                            updated_at = ?
+                                        WHERE patient_id = ?
+                                        ''', (
+                                            new_phone,
+                                            new_email,
+                                            new_address,
+                                            new_emergency_name,
+                                            new_emergency_phone,
+                                            current_time,
+                                            update_patient_id
+                                        ))
+                                        
+                                        # Update medical history
+                                        cursor.execute('''
+                                        UPDATE medical_history SET
+                                            blood_type = ?,
+                                            allergies = ?,
+                                            chronic_conditions = ?,
+                                            updated_at = ?
+                                        WHERE patient_id = ?
+                                        ''', (
+                                            new_blood_type,
+                                            new_allergies,
+                                            new_conditions,
+                                            current_time,
+                                            update_patient_id
+                                        ))
+                                        
+                                        conn.commit()
+                                        st.success(f"Patient {new_first_name} {new_last_name} updated successfully")
+                                    
+                                    except sqlite3.Error as e:
+                                        st.error(f"Database error: {e}")
+                                else:
+                                    st.warning("First and last names are required")
+            else:
+                st.warning(f"Nost.warning(f"No patients found matching '{update_search}'")
+            
+            conn.close()
+    
+    # Tab 4: Delete Patient
+    with tab4:
+        st.subheader("Delete Patient")
+        st.warning("⚠️ Deleting a patient will permanently remove all their data from the system.")
+        
+        # Search for patient to delete
+        delete_search = st.text_input("Enter Patient ID or Name to Delete", key="delete_search")
+        
+        if delete_search:
+            conn = sqlite3.connect(DB_FILE)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+            SELECT id, first_name, last_name
+            FROM patients
+            WHERE id LIKE ? OR first_name LIKE ? OR last_name LIKE ?
+            ''', (f'%{delete_search}%', f'%{delete_search}%', f'%{delete_search}%'))
+            
+            patient_results = cursor.fetchall()
+            
+            if patient_results:
+                delete_patient_id = st.selectbox(
+                    "Select Patient to Delete",
+                    options=[p[0] for p in patient_results],
+                    format_func=lambda x: f"{x} - {next((p[1] + ' ' + p[2] for p in patient_results if p[0] == x), '')}"
+                )
+                
+                if delete_patient_id:
+                    # Display confirmation
+                    patient_name = next((f"{p[1]} {p[2]}" for p in patient_results if p[0] == delete_patient_id), "")
+                    st.markdown(f"<div class='warning-box'>Are you sure you want to delete patient: <b>{patient_name}</b> ({delete_patient_id})?</div>", unsafe_allow_html=True)
+                    
+                    # Confirmation checkbox
+                    confirm_delete = st.checkbox("I understand this action cannot be undone", key="confirm_delete")
+                    
+                    if confirm_delete:
+                        if st.button("Delete Patient", key="execute_delete", type="primary"):
+                            try:
+                                # Delete patient and all related records
+                                cursor.execute("DELETE FROM medications WHERE patient_id = ?", (delete_patient_id,))
+                                cursor.execute("DELETE FROM visit_records WHERE patient_id = ?", (delete_patient_id,))
+                                cursor.execute("DELETE FROM insurance WHERE patient_id = ?", (delete_patient_id,))
+                                cursor.execute("DELETE FROM appointments WHERE patient_id = ?", (delete_patient_id,))
+                                cursor.execute("DELETE FROM vital_signs WHERE patient_id = ?", (delete_patient_id,))
+                                cursor.execute("DELETE FROM medical_history WHERE patient_id = ?", (delete_patient_id,))
+                                cursor.execute("DELETE FROM contact_info WHERE patient_id = ?", (delete_patient_id,))
+                                cursor.execute("DELETE FROM patients WHERE id = ?", (delete_patient_id,))
+                                
+                                conn.commit()
+                                st.success(f"Patient {patient_name} ({delete_patient_id}) has been deleted successfully")
+                            
+                            except sqlite3.Error as e:
+                                st.error(f"Database error: {e}")
+            else:
+                st.warning(f"No patients found matching '{delete_search}'")
+            
+            conn.close()
+
+# Appointments page
+def appointments_page():
+    st.header("Appointment Management")
+    
+    # Create tabs for different appointment functions
+    tab1, tab2, tab3 = st.tabs(["View Appointments", "Schedule Appointment", "Manage Appointments"])
+    
+    # Tab 1: View Appointments
+    with tab1:
+        st.subheader("View Appointments")
+        
+        # Filter options
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            view_option = st.selectbox("View", ["All", "Upcoming", "Past", "Today"])
+        with col2:
+            status_filter = st.selectbox("Status", ["All", "Scheduled", "Completed", "Cancelled", "No-show"])
+        with col3:
+            date_filter = st.date_input("Date", datetime.now())
+        
+        # Get appointments based on filters
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        
+        query = '''
+        SELECT a.id, p.id as patient_id, p.first_name, p.last_name, a.appointment_date, 
+               a.duration, a.status, a.reason, u.name as provider_name
+        FROM appointments a
+        JOIN patients p ON a.patient_id = p.id
+        LEFT JOIN users u ON a.provider_id = u.id
+        WHERE 1=1
+        '''
+        params = []
+        
+        # Apply filters
+        if view_option == "Upcoming":
+            query += " AND a.appointment_date > datetime('now')"
+        elif view_option == "Past":
+            query += " AND a.appointment_date < datetime('now')"
+        elif view_option == "Today":
+            query += " AND date(a.appointment_date) = date('now')"
+        
+        if status_filter != "All":
+            query += " AND a.status = ?"
+            params.append(status_filter)
+        
+        if view_option == "All" and date_filter:
+            query += " AND date(a.appointment_date) = ?"
+            params.append(date_filter.isoformat())
+        
+        query += " ORDER BY a.appointment_date ASC"
+        
+        cursor.execute(query, params)
+        appointments = cursor.fetchall()
+        
+        if appointments:
+            # Create a dataframe for display
+            appointments_df = pd.DataFrame([
+                {
+                    "ID": a[0],
+                    "Patient ID": a[1],
+                    "Patient Name": f"{a[2]} {a[3]}",
+                    "Date": a[4].split("T")[0] if "T" in a[4] else a[4],
+                    "Time": a[4].split("T")[1][:5] if "T" in a[4] else "",
+                    "Duration": f"{a[5]} min" if a[5] else "N/A",
+                    "Status": a[6],
+                    "Reason": a[7],
+                    "Provider": a[8] if a[8] else "Not assigned"
+                } for a in appointments
+            ])
+            
+            st.dataframe(appointments_df)
+            
+            # Option to view appointment details
+            selected_appt = st.selectbox("Select appointment to view details", 
+                                         options=[f"{a[0]} - {a[2]} {a[3]} ({a[4].split('T')[0] if 'T' in a[4] else a[4]})" for a in appointments])
+            
+            if selected_appt:
+                appt_id = selected_appt.split(" - ")[0]
+                
+                # Get specific appointment details
+                cursor.execute('''
+                SELECT a.id, p.id as patient_id, p.first_name, p.last_name, a.appointment_date, 
+                       a.duration, a.status, a.reason, a.notes, u.name as provider_name
+                FROM appointments a
+                JOIN patients p ON a.patient_id = p.id
+                LEFT JOIN users u ON a.provider_id = u.id
+                WHERE a.id = ?
+                ''', (appt_id,))
+                
+                appt_details = cursor.fetchone()
+                
+                if appt_details:
+                    st.markdown("<div class='card'>", unsafe_allow_html=True)
+                    st.subheader(f"Appointment Details #{appt_details[0]}")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown(f"**Patient:** {appt_details[2]} {appt_details[3]} (ID: {appt_details[1]})")
+                        st.markdown(f"**Date:** {appt_details[4].split('T')[0] if 'T' in appt_details[4] else appt_details[4]}")
+                        st.markdown(f"**Time:** {appt_details[4].split('T')[1][:5] if 'T' in appt_details[4] else 'N/A'}")
+                        st.markdown(f"**Duration:** {appt_details[5]} minutes")
+                    
+                    with col2:
+                        st.markdown(f"**Status:** {appt_details[6]}")
+                        st.markdown(f"**Reason:** {appt_details[7]}")
+                        st.markdown(f"**Provider:** {appt_details[9] if appt_details[9] else 'Not assigned'}")
+                    
+                    st.markdown("**Notes:**")
+                    st.markdown(f"{appt_details[8] if appt_details[8] else 'No notes recorded.'}")
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            st.info("No appointments found matching the selected criteria.")
+        
+        conn.close()
+    
+    # Tab 2: Schedule Appointment
+    with tab2:
+        st.subheader("Schedule New Appointment")
+        
+        with st.form("schedule_appointment_form"):
+            # Find patient
+            patient_search = st.text_input("Search Patient (ID or Name)")
+            
+            patient_id = None
+            patient_name = ""
+            
+            if patient_search:
+                conn = sqlite3.connect(DB_FILE)
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                SELECT id, first_name, last_name
+                FROM patients
+                WHERE id LIKE ? OR first_name LIKE ? OR last_name LIKE ?
+                ''', (f'%{patient_search}%', f'%{patient_search}%', f'%{patient_search}%'))
+                
+                patient_results = cursor.fetchall()
+                conn.close()
+                
+                if patient_results:
+                    patient_options = [f"{p[0]} - {p[1]} {p[2]}" for p in patient_results]
+                    selected_patient = st.selectbox("Select Patient", options=patient_options)
+                    
+                    if selected_patient:
+                        patient_id = selected_patient.split(" - ")[0]
+                        patient_name = selected_patient.split(" - ")[1]
+                        st.success(f"Selected patient: {patient_name}")
+                else:
+                    st.warning(f"No patients found matching '{patient_search}'")
+            
+            # Appointment details
+            st.markdown("### Appointment Details")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                appointment_date = st.date_input("Date", min_value=datetime.now().date())
+            with col2:
+                appointment_time = st.time_input("Time", value=datetime.now().time().replace(minute=0, second=0, microsecond=0))
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                duration = st.slider("Duration (minutes)", min_value=15, max_value=120, value=30, step=15)
+            with col2:
+                status = st.selectbox("Status", ["Scheduled", "Tentative"])
+            
+            # Reason and notes
+            reason = st.text_input("Reason for Visit")
+            notes = st.text_area("Notes")
+            
+            # Provider selection
+            conn = sqlite3.connect(DB_FILE)
+            cursor = conn.cursor()
+            
+            cursor.execute('SELECT id, name FROM users WHERE role = "doctor" OR role = "admin"')
+            providers = cursor.fetchall()
+            conn.close()
+            
+            if providers:
+                provider_options = [f"{p[0]} - {p[1]}" for p in providers]
+                provider_options.insert(0, "Not assigned")
+                selected_provider = st.selectbox("Provider", options=provider_options)
+                
+                if selected_provider != "Not assigned":
+                    provider_id = selected_provider.split(" - ")[0]
+                else:
+                    provider_id = None
+            else:
+                st.warning("No providers found in the system.")
+                provider_id = None
+            
+            # Submit button
+            submitted = st.form_submit_button("Schedule Appointment")
+            
+            if submitted:
+                if patient_id and appointment_date:
+                    conn = sqlite3.connect(DB_FILE)
+                    cursor = conn.cursor()
+                    
+                    # Combine date and time
+                    appointment_datetime = datetime.combine(appointment_date, appointment_time).isoformat()
+                    current_time = datetime.now().isoformat()
+                    
+                    try:
+                        cursor.execute('''
+                        INSERT INTO appointments (
+                            patient_id, provider_id, appointment_date, duration, status, reason, notes, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ''', (
+                            patient_id,
+                            provider_id,
+                            appointment_datetime,
+                            duration,
+                            status,
+                            reason,
+                            notes,
+                            current_time,
+                            current_time
+                        ))
+                        
+                        conn.commit()
+                        st.success(f"Appointment scheduled successfully for {patient_name} on {appointment_date} at {appointment_time}")
+                    
+                    except sqlite3.Error as e:
+                        st.error(f"Database error: {e}")
+                    finally:
+                        conn.close()
+                else:
+                    st.warning("Please select a patient and appointment date")
+    
+    # Tab 3: Manage Appointments
+    with tab3:
+        st.subheader("Manage Appointments")
+        
+        # Search for appointment to manage
+        appt_search = st.text_input("Enter Appointment ID or Patient Name", key="appt_search")
+        
+        if appt_search:
+            conn = sqlite3.connect(DB_FILE)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+            SELECT a.id, p.id as patient_id, p.first_name, p.last_name, a.appointment_date
+            FROM appointments a
+            JOIN patients p ON a.patient_id = p.id
+            WHERE a.id LIKE ? OR p.first_name LIKE ? OR p.last_name LIKE ?
+            ''', (f'%{appt_search}%', f'%{appt_search}%', f'%{appt_search}%'))
+            
+            appt_results = cursor.fetchall()
+            
+            if appt_results:
+                manage_appt_id = st.selectbox(
+                    "Select Appointment to Manage",
+                    options=[a[0] for a in appt_results],
+                    format_func=lambda x: f"{x} - {next((a[2] + ' ' + a[3] + ' (' + (a[4].split('T')[0] if 'T' in a[4] else a[4]) + ')' for a in appt_results if a[0] == x), '')}"
+                )
+                
+                if manage_appt_id:
+                    # Get current appointment data
+                    cursor.execute('''
+                    SELECT a.id, a.patient_id, a.provider_id, a.appointment_date, a.duration, a.status, a.reason, a.notes
+                    FROM appointments a
+                    WHERE a.id = ?
+                    ''', (manage_appt_id,))
+                    
+                    appt_data = cursor.fetchone()
+                    
+                    if appt_data:
+                        # Create tabs for update or delete
+                        update_tab, delete_tab = st.tabs(["Update Appointment", "Cancel/Delete Appointment"])
+                        
+                        # Tab for updating appointment
+                        with update_tab:
+                            with st.form("update_appointment_form"):
+                                # Get patient info
+                                cursor.execute("SELECT id, first_name, last_name FROM patients WHERE id = ?", (appt_data[1],))
+                                patient_info = cursor.fetchone()
+                                patient_name = f"{patient_info[1]} {patient_info[2]}" if patient_info else "Unknown"
+                                
+                                st.markdown(f"Updating appointment for **{patient_name}**")
+                                
+                                # Parse date and time
+                                appt_datetime = datetime.fromisoformat(appt_data[3]) if "T" in appt_data[3] else datetime.strptime(appt_data[3], "%Y-%m-%d %H:%M:%S")
+                                appt_date = appt_datetime.date()
+                                appt_time = appt_datetime.time()
+                                
+                                # Update fields
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    new_date = st.date_input("Date", value=appt_date)
+                                with col2:
+                                    new_time = st.time_input("Time", value=appt_time)
+                                
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    new_duration = st.slider("Duration (minutes)", min_value=15, max_value=120, value=appt_data[4], step=15)
+                                with col2:
+                                    new_status = st.selectbox("Status", ["Scheduled", "Completed", "Cancelled", "No-show"], index=["Scheduled", "Completed", "Cancelled", "No-show"].index(appt_data[5]) if appt_data[5] in ["Scheduled", "Completed", "Cancelled", "No-show"] else 0)
+                                
+                                # Reason and notes
+                                new_reason = st.text_input("Reason for Visit", value=appt_data[6] if appt_data[6] else "")
+                                new_notes = st.text_area("Notes", value=appt_data[7] if appt_data[7] else "")
+                                
+                                # Provider selection
+                                cursor.execute('SELECT id, name FROM users WHERE role = "doctor" OR role = "admin"')
+                                providers = cursor.fetchall()
+                                
+                                if providers:
+                                    provider_options = [f"{p[0]} - {p[1]}" for p in providers]
+                                    provider_options.insert(0, "Not assigned")
+                                    
+                                    if appt_data[2]:
+                                        # Find current provider
+                                        cursor.execute("SELECT id, name FROM users WHERE id = ?", (appt_data[2],))
+                                        current_provider = cursor.fetchone()
+                                        current_provider_str = f"{current_provider[0]} - {current_provider[1]}" if current_provider else "Not assigned"
+                                        
+                                        selected_index = provider_options.index(current_provider_str) if current_provider_str in provider_options else 0
+                                    else:
+                                        selected_index = 0
+                                    
+                                    selected_provider = st.selectbox("Provider", options=provider_options, index=selected_index)
+                                    
+                                    if selected_provider != "Not assigned":
+                                        new_provider_id = selected_provider.split(" - ")[0]
+                                    else:
+                                        new_provider_id = None
+                                else:
+                                    st.warning("No providers found in the system.")
+                                    new_provider_id = None
+                                
+                                # Submit button
+                                update_submitted = st.form_submit_button("Update Appointment")
+                                
+                                if update_submitted:
+                                    try:
+                                        # Combine date and time
+                                        new_datetime = datetime.combine(new_date, new_time).isoformat()
+                                        current_time = datetime.now().isoformat()
+                                        
+                                        cursor.execute('''
+                                        UPDATE appointments SET
+                                            provider_id = ?,
+                                            appointment_date = ?,
+                                            duration = ?,
+                                            status = ?,
+                                            reason = ?,
+                                            notes = ?,
+                                            updated_at = ?
+                                        WHERE id = ?
+                                        ''', (
+                                            new_provider_id,
+                                            new_datetime,
+                                            new_duration,
+                                            new_status,
+                                            new_reason,
+                                            new_notes,
+                                            current_time,
+                                            manage_appt_id
+                                        ))
+                                        
+                                        conn.commit()
+                                        st.success(f"Appointment #{manage_appt_id} updated successfully")
+                                    
+                                    except sqlite3.Error as e:
+                                        st.error(f"Database error: {e}")
+                        
+                        # Tab for cancelling/deleting appointment
+                        with delete_tab:
+                            st.markdown("<div class='warning-box'>⚠️ Cancelling or deleting an appointment cannot be undone.</div>", unsafe_allow_html=True)
+                            
+                            action = st.radio("Action", ["Cancel Appointment", "Delete Appointment"])
+                            
+                            if action == "Cancel Appointment":
+                                if st.button("Cancel This Appointment"):
+                                    try:
+                                        current_time = datetime.now().isoformat()
+                                        
+                                        cursor.execute('''
+                                        UPDATE appointments SET
+                                            status = ?,
+                                            updated_at = ?
+                                        WHERE id = ?
+                                        ''', ("Cancelled", current_time, manage_appt_id))
+                                        
+                                        conn.commit()
+                                        st.success(f"Appointment #{manage_appt_id} has been cancelled")
+                                    
+                                    except sqlite3.Error as e:
+                                        st.error(f"Database error: {e}")
+                            
+                            else:  # Delete Appointment
+                                confirm_delete = st.checkbox("I understand this will permanently delete this appointment", key="confirm_appt_delete")
+                                
+                                if confirm_delete:
+                                    if st.button("Delete This Appointment", type="primary"):
+                                        try:
+                                            cursor.execute("DELETE FROM appointments WHERE id = ?", (manage_appt_id,))
+                                            
+                                            conn.commit()
+                                            st.success(f"Appointment #{manage_appt_id} has been deleted successfully")
+                                        
+                                        except sqlite3.Error as e:
+                                            st.error(f"Database error: {e}")
+            else:
+                st.warning(f"No appointments found matching '{appt_search}'")
+            
+            conn.close()
+
+# Vitals page
+def vitals_page():
+    st.header("Vital Signs Management")
+    
+    # Create tabs
+    tab1, tab2, tab3 = st.tabs(["Record Vitals", "Vital Signs History", "Vital Signs Charts"])
+    
+    # Tab 1: Record Vitals
+    with tab1:
+        st.subheader("Record Patient Vital Signs")
+        
+        # Search for patient
+        patient_search = st.text_input("Search Patient (ID or Name)", key="vitals_patient_search")
+        
+        if patient_search:
+            conn = sqlite3.connect(DB_FILE)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+            SELECT id, first_name, last_name
+            FROM patients
+            WHERE id LIKE ? OR first_name LIKE ? OR last_name LIKE ?
+            ''', (f'%{patient_search}%', f'%{patient_search}%', f'%{patient_search}%'))
+            
+            patient_results = cursor.fetchall()
+            
+            if patient_results:
+                patient_options = [f"{p[0]} - {p[1]} {p[2]}" for p in patient_results]
+                selected_patient = st.selectbox("Select Patient", options=patient_options, key="vitals_patient_select")
+                
+                if selected_patient:
+                    patient_id = selected_patient.split(" - ")[0]
+                    patient_name = selected_patient.split(" - ")[1]
+                    
+                    st.success(f"Recording vitals for: {patient_name}")
+                    
+                    # Form for recording vitals
+                    with st.form("record_vitals_form"):
+                        st.markdown("### Vital Signs")
+                        
+                        # Record date and time
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            record_date = st.date_input("Date", value=datetime.now().date())
+                        with col2:
+                            record_time = st.time_input("Time", value=datetime.now().time())
+                        
+                        # Vital signs
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            temperature = st.number_input("Temperature (°F)", min_value=93.0, max_value=108.0, value=98.6, step=0.1)
+                        with col2:
+                            bp_systolic = st.number_input("Blood Pressure - Systolic", min_value=70, max_value=200, value=120)
+                        with col3:
+                            bp_diastolic = st.number_input("Blood Pressure - Diastolic", min_value=40, max_value=120, value=80)
+                        
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            pulse = st.number_input("Pulse (bpm)", min_value=30, max_value=220, value=75)
+                        with col2:
+                            respiratory_rate = st.number_input("Respiratory Rate (breaths/min)", min_value=8, max_value=40, value=16)
+                        with col3:
+                            oxygen = st.number_input("Oxygen Saturation (%)", min_value=70.0, max_value=100.0, value=98.0, step=0.1)
+                        
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            weight = st.number_input("Weight (lbs)", min_value=1.0, max_value=500.0, value=150.0, step=0.1)
+                        with col2:
+                            height = st.number_input("Height (inches)", min_value=20.0, max_value=96.0, value=68.0, step=0.1)
+                        with col3:
+                            bmi = st.number_input("BMI", min_value=10.0, max_value=50.0, value=round((weight * 703) / (height * height), 1), step=0.1, disabled=True)
+                        
+                        # Additional info
+                        notes = st.text_area("Notes")
+                        
+                        # Submit button
+                        submitted = st.form_submit_button("Record Vital Signs")
+                        
+                        if submitted:
+                            try:
+                                conn = sqlite3.connect(DB_FILE)
+                                cursor = conn.cursor()
+                                
+                                # Combine date and time
+                                recorded_datetime = datetime.combine(record_date, record_time).isoformat()
+                                current_time = datetime.now().isoformat()
+                                
+                                # Calculate BMI
+                                bmi = round((weight * 703) / (height * height), 1)
+                                
+                                # Format blood pressure
+                                blood_pressure = f"{bp_systolic}/{bp_diastolic}"
+                                
+                                cursor.execute('''
+                                INSERT INTO vital_signs (
+                                    patient_id, recorded_date, temperature, blood_pressure, pulse, 
+                                    respiratory_rate, oxygen_saturation, weight, height, bmi,
+                                    recorded_by, notes, created_at, updated_at
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                ''', (
+                                    patient_id,
+                                    recorded_datetime,
+                                    temperature,
+                                    blood_pressure,
+                                    pulse,
+                                    respiratory_rate,
+                                    oxygen,
+                                    weight,
+                                    height,
+                                    bmi,
+                                    st.session_state.user['name'],
+                                    notes,
+                                    current_time,
+                                    current_time
+                                ))
+                                
+                                conn.commit()
+                                st.success(f"Vital signs recorded successfully for {patient_name}")
+                                
+                                # Display recorded vitals
+                                st.markdown("<div class='success-box'>", unsafe_allow_html=True)
+                                st.markdown(f"#### Vital Signs Summary for {patient_name}")
+                                st.markdown(f"**Temperature:** {temperature} °F")
+                                st.markdown(f"**Blood Pressure:** {blood_pressure} mmHg")
+                                st.markdown(f"**Pulse:** {pulse} bpm")
+                                st.markdown(f"**Respiratory Rate:** {respiratory_rate} breaths/min")
+                                st.markdown(f"**Oxygen Saturation:** {oxygen}%")
+                                st.markdown(f"**Weight:** {weight} lbs")
+                                st.markdown(f"**Height:** {height} inches")
+                                st.markdown(f"**BMI:** {bmi}")
+                                st.markdown("</div>", unsafe_allow_html=True)
+                            
+                            except sqlite3.Error as e:
+                                st.error(f"Database error: {e}")
+                            finally:
+                                conn.close()
+            else:
+                st.warning(f"No patients found matching '{patient_search}'")
+    
+    # Tab 2: Vital Signs History
+    with tab2:
+        st.subheader("Patient Vital Signs History")
+        
+        # Search for patient
+        history_patient_search = st.text_input("Search Patient (ID or Name)", key="history_patient_search")
+        
+        if history_patient_search:
+            conn = sqlite3.connect(DB_FILE)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+            SELECT id, first_name, last_name
+            FROM patients
+            WHERE id LIKE ? OR first_name LIKE ? OR last_name LIKE ?
+            ''', (f'%{history_patient_search}%', f'%{history_patient_search}%', f'%{history_patient_search}%'))
+            
+            patient_results = cursor.fetchall()
+            
+            if patient_results:
+                patient_options = [f"{p[0]} - {p[1]} {p[2]}" for p in patient_results]
+                selected_patient = st.selectbox("Select Patient", options=patient_options, key="history_patient_select")
+                
+                if selected_patient:
+                    patient_id = selected_patient.split(" - ")[0]
+                    patient_name = selected_patient.split(" - ")[1]
+                    
+                    # Get vital signs history
+                    cursor.execute('''
+                    SELECT id, recorded_date, temperature, blood_pressure, pulse, respiratory_rate, 
+                           oxygen_saturation, weight, height, bmi, recorded_by, notes
+                    FROM vital_signs
+                    WHERE patient_id = ?
+                    ORDER BY recorded_date DESC
+                    ''', (patient_id,))
+                    
+                    vitals_history = cursor.fetchall()
+                    
+                    if vitals_history:
+                        st.markdown(f"### Vital Signs History for {patient_name}")
+                        
+                        # Convert to DataFrame for display
+                        vitals_df = pd.DataFrame([
+                            {
+                                "Date": v[1].split("T")[0] if "T" in v[1] else v[1].split(" ")[0],
+                                "Time": v[1].split("T")[1][:5] if "T" in v[1] else v[1].split(" ")[1][:5] if " " in v[1] else "",
+                                "Temperature":
