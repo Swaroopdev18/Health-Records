@@ -886,7 +886,7 @@ if search_button and search_term:
                 st.warning(f"No patients found matching '{search_term}'")
         
         # Patient detail view (when selected from search)
-        if 'view_patient_id' in st.experimental_get_query_params():
+if 'view_patient_id' in st.experimental_get_query_params():
             patient_id = st.experimental_get_query_params()['view_patient_id'][0]
             
             conn = sqlite3.connect(DB_FILE)
