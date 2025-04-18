@@ -1013,7 +1013,7 @@ if 'view_patient_id' in st.experimental_get_query_params():
             conn.close()
     
     # Tab 2: Add Patient
-    with tab2:
+     with tab2:
         st.subheader("Add New Patient")
         
         # Create a form for adding new patient
