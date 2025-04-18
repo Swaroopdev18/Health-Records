@@ -1898,6 +1898,132 @@ def vitals_page():
                                 conn.close()
             else:
                 st.warning(f"No patients found matching '{patient_search}'")
+
+# Completing the Vital Signs History tab
+with tab2:
+    st.subheader("Patient Vital Signs History")
+
+    # Search for patient
+    history_patient_search = st.text_input("Search Patient (ID or Name)", key="history_patient_search")
+
+    if history_patient_search:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+        SELECT id, first_name, last_name
+        FROM patients
+        WHERE id LIKE ? OR first_name LIKE ? OR last_name LIKE ?
+        ''', (f'%{history_patient_search}%', f'%{history_patient_search}%', f'%{history_patient_search}%'))
+
+        patient_results = cursor.fetchall()
+
+        if patient_results:
+            patient_options = [f"{p[0]} - {p[1]} {p[2]}" for p in patient_results]
+            selected_patient = st.selectbox("Select Patient", options=patient_options, key="history_patient_select")
+
+            if selected_patient:
+                patient_id = selected_patient.split(" - ")[0]
+                patient_name = selected_patient.split(" - ")[1]
+
+                # Get vital signs history
+                cursor.execute('''
+                SELECT id, recorded_date, temperature, blood_pressure, pulse, respiratory_rate, 
+                       oxygen_saturation, weight, height, bmi, recorded_by, notes
+                FROM vital_signs
+                WHERE patient_id = ?
+                ORDER BY recorded_date DESC
+                ''', (patient_id,))
+
+                vitals_history = cursor.fetchall()
+
+                if vitals_history:
+                    st.markdown(f"### Vital Signs History for {patient_name}")
+
+                    # Convert to DataFrame for display
+                    vitals_df = pd.DataFrame([
+                        {
+                            "Date": v[1].split("T")[0] if "T" in v[1] else v[1].split(" ")[0],
+                            "Time": v[1].split("T")[1][:5] if "T" in v[1] else v[1].split(" ")[1][:5] if " " in v[1] else "",
+                            "Temperature (°F)": v[2],
+                            "Blood Pressure (mmHg)": v[3],
+                            "Pulse (bpm)": v[4],
+                            "Respiratory Rate (breaths/min)": v[5],
+                            "Oxygen Saturation (%)": v[6],
+                            "Weight (lbs)": v[7],
+                            "Height (inches)": v[8],
+                            "BMI": v[9],
+                            "Recorded By": v[10],
+                            "Notes": v[11] if v[11] else "N/A"
+                        } for v in vitals_history
+                    ])
+
+                    st.dataframe(vitals_df)
+                else:
+                    st.info(f"No vital signs history available for {patient_name}.")
+        else:
+            st.warning(f"No patients found matching '{history_patient_search}'")
+        conn.close()
+
+# Tab 3: Vital Signs Charts
+with tab3:
+    st.subheader("Vital Signs Charts")
+
+    # Search for patient
+    chart_patient_search = st.text_input("Search Patient (ID or Name)", key="chart_patient_search")
+
+    if chart_patient_search:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+        SELECT id, first_name, last_name
+        FROM patients
+        WHERE id LIKE ? OR first_name LIKE ? OR last_name LIKE ?
+        ''', (f'%{chart_patient_search}%', f'%{chart_patient_search}%', f'%{chart_patient_search}%'))
+
+        patient_results = cursor.fetchall()
+
+        if patient_results:
+            patient_options = [f"{p[0]} - {p[1]} {p[2]}" for p in patient_results]
+            selected_patient = st.selectbox("Select Patient", options=patient_options, key="chart_patient_select")
+
+            if selected_patient:
+                patient_id = selected_patient.split(" - ")[0]
+                patient_name = selected_patient.split(" - ")[1]
+
+                # Get vital signs data for charts
+                cursor.execute('''
+                SELECT recorded_date, temperature, pulse, oxygen_saturation, weight, height, bmi
+                FROM vital_signs
+                WHERE patient_id = ?
+                ORDER BY recorded_date ASC
+                ''', (patient_id,))
+
+                vitals_chart_data = cursor.fetchall()
+
+                if vitals_chart_data:
+                    # Convert to DataFrame for charting
+                    chart_df = pd.DataFrame([
+                        {
+                            "Date": v[0].split("T")[0] if "T" in v[0] else v[0],
+                            "Temperature (°F)": v[1],
+                            "Pulse (bpm)": v[2],
+                            "Oxygen Saturation (%)": v[3],
+                            "Weight (lbs)": v[4],
+                            "Height (inches)": v[5],
+                            "BMI": v[6]
+                        } for v in vitals_chart_data
+                    ])
+
+                    # Create line charts for each vital sign
+                    st.line_chart(chart_df.set_index("Date")[["Temperature (°F)", "Pulse (bpm)", "Oxygen Saturation (%)"]])
+                    st.line_chart(chart_df.set_index("Date")[["Weight (lbs)", "BMI"]])
+                else:
+                    st.info(f"No vital signs data available for {patient_name}.")
+        else:
+            st.warning(f"No patients found matching '{chart_patient_search}'")
+        conn.close()
     
     
                     
