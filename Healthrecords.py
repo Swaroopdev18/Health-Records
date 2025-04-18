@@ -1899,50 +1899,5 @@ def vitals_page():
             else:
                 st.warning(f"No patients found matching '{patient_search}'")
     
-    # Tab 2: Vital Signs History
-    with tab2:
-        st.subheader("Patient Vital Signs History")
-        
-        # Search for patient
-        history_patient_search = st.text_input("Search Patient (ID or Name)", key="history_patient_search")
-        
-        if history_patient_search:
-            conn = sqlite3.connect(DB_FILE)
-            cursor = conn.cursor()
-            
-            cursor.execute('''
-            SELECT id, first_name, last_name
-            FROM patients
-            WHERE id LIKE ? OR first_name LIKE ? OR last_name LIKE ?
-            ''', (f'%{history_patient_search}%', f'%{history_patient_search}%', f'%{history_patient_search}%'))
-            
-            patient_results = cursor.fetchall()
-            
-            if patient_results:
-                patient_options = [f"{p[0]} - {p[1]} {p[2]}" for p in patient_results]
-                selected_patient = st.selectbox("Select Patient", options=patient_options, key="history_patient_select")
-                
-                if selected_patient:
-                    patient_id = selected_patient.split(" - ")[0]
-                    patient_name = selected_patient.split(" - ")[1]
+    
                     
-                    # Get vital signs history
-                    cursor.execute('''
-                    SELECT id, recorded_date, temperature, blood_pressure, pulse, respiratory_rate, 
-                           oxygen_saturation, weight, height, bmi, recorded_by, notes
-                    FROM vital_signs
-                    WHERE patient_id = ?
-                    ORDER BY recorded_date DESC
-                    ''', (patient_id,))
-                    
-                    vitals_history = cursor.fetchall()
-                    
-                    if vitals_history:
-                        st.markdown(f"### Vital Signs History for {patient_name}")
-                        
-                        # Convert to DataFrame for display
-                        vitals_df = pd.DataFrame([
-                            {
-                                "Date": v[1].split("T")[0] if "T" in v[1] else v[1].split(" ")[0],
-                                "Time": v[1].split("T")[1][:5] if "T" in v[1] else v[1].split(" ")[1][:5] if " " in v[1] else "",
-                                "Temperature":
