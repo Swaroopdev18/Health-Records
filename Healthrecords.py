@@ -962,7 +962,7 @@ def appointments_page():
                             if providers:
                                 provider_options = [f"{p[0]} - {p[1]}" for p in providers]
                                 provider_options.insert(0, "Not assigned")
-                                current_provider_str = f"{appt_data[2]} - {next((p[1] for p in providers if p[0] == appt_data[2]], 'Not assigned')}" if appt_data[2] else "Not assigned"
+                                current_provider_str = f"{appt_data[2]} - {next((p[1] for p in providers if p[0] == appt_data[2]), 'Not assigned')}" if appt_data[2] else "Not assigned"
                                 selected_index = provider_options.index(current_provider_str) if current_provider_str in provider_options else 0
                                 selected_provider = st.selectbox("Provider", options=provider_options, index=selected_index)
                                 new_provider_id = selected_provider.split(" - ")[0] if selected_provider != "Not assigned" else None
