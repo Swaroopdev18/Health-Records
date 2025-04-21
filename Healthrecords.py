@@ -200,7 +200,7 @@ def initialize_database():
     if cursor.fetchone()[0] == 0:
         # Demo patient
         patient_user_id = f"USR_PAT_{uuid.uuid4()}"
-        patient_id = f"PAT_{uuid.uuid4()[:8]}"
+        patient_id = f"PAT_{str(uuid.uuid4())[:8]}"
         password_hash = hashlib.sha256("patient123".encode()).hexdigest()
         current_time = datetime.now().isoformat()
         cursor.execute('INSERT INTO users (id, username, password_hash, role, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (patient_user_id, "patient1", password_hash, "patient", "John Doe", "john@example.com", current_time, current_time))
