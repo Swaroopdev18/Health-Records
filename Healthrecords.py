@@ -388,4 +388,365 @@ def login_page():
                         cursor = conn.cursor()
                         try:
                             cursor.execute('INSERT INTO users (id, username, password_hash, role, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (user_id, username, password_hash, "hospital", hospital_name, email, current_time, current_time))
-                            cursor.execute('INSERT INTO hospitals (id, user_id, name, address, phone
+                            cursor.execute( 'INSERT INTO hospitals (id, user_id, name, address, phone, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (hospital_id, user_id, "City Hospital", "123 Main St", "555-1234", "approved", current_time, current_time))
+                            conn.commit()
+                            st.success("Registration submitted for admin approval.")
+                        except sqlite3.Error as e:
+                            st.error(f"Error: {e}")
+                        finally:
+                            conn.close()
+                    else:
+                        st.warning("Please fill all required fields")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# Navigation
+def navigation():
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.markdown(f'<div class="header-container"><img src="{get_trackmyhealth_logo()}" class="header-logo" /><h1 class="header-title">Track My Health</h1></div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown(f"<div style='text-align: right; padding: 10px;'><b>{st.session_state.user['name']}</b> ({st.session_state.role.capitalize()}) | <a href='#' onclick='window.location.reload()'>Logout</a></div>", unsafe_allow_html=True)
+    if st.session_state.role == "patient":
+        menu = ["Dashboard", "Appointments", "Medical History", "About"]
+    elif st.session_state.role == "hospital":
+        menu = ["Dashboard", "Appointments", "Medical History", "Patient Management", "About"]
+    else:
+        menu = ["Admin Dashboard", "Hospital Approvals", "About"]
+    return st.sidebar.selectbox("Menu", menu)
+
+# Admin Dashboard
+def admin_dashboard():
+    st.markdown(f'<div class="hero-section"><img src="{get_trackmyhealth_logo()}" class="header-logo" /><h1>Welcome, Admin!</h1><p>Manage hospital registrations and system settings.</p></div>', unsafe_allow_html=True)
+    # AI-Generated Image
+    st.markdown("Would you like to generate an image of a professional admin managing healthcare records for this section?")
+    general_health_queries()
+
+# Hospital Approvals (Admin)
+def hospital_approvals():
+    st.markdown(f'<div class="hero-section"><img src="{get_trackmyhealth_logo()}" class="header-logo" /><h1>Hospital Registration Approvals</h1></div>', unsafe_allow_html=True)
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, user_id, name, address, phone, email, status FROM hospitals WHERE status = 'pending'")
+    pending_hospitals = cursor.fetchall()
+    if pending_hospitals:
+        for hospital in pending_hospitals:
+            hospital_id, user_id, name, address, phone, email, status = hospital
+            st.markdown(f"<div class='card'>", unsafe_allow_html=True)
+            st.markdown(f"**Hospital:** {name}<br>**Address:** {address}<br>**Phone:** {phone}<br>**Email:** {email}<br>**Status:** {status}", unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button(f"Approve {name}", key=f"approve_{hospital_id}"):
+                    cursor.execute("UPDATE hospitals SET status = 'approved' WHERE id = ?", (hospital_id,))
+                    conn.commit()
+                    st.success(f"{name} approved successfully")
+                    st.experimental_rerun()
+            with col2:
+                if st.button(f"Reject {name}", key=f"reject_{hospital_id}"):
+                    cursor.execute("UPDATE hospitals SET status = 'rejected' WHERE id = ?", (hospital_id,))
+                    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+                    conn.commit()
+                    st.success(f"{name} rejected and removed")
+                    st.experimental_rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+    else:
+        st.info("No pending hospital registrations.")
+    conn.close()
+    general_health_queries()
+
+# Patient Dashboard
+def patient_dashboard():
+    st.markdown(f'<div class="hero-section"><img src="{get_trackmyhealth_logo()}" class="header-logo" /><h1>Welcome, {st.session_state.user["name"]}!</h1><p>Manage your health records with ease.</p></div>', unsafe_allow_html=True)
+    # AI-Generated Image
+    st.markdown("Would you like to generate an image of a happy patient managing their health records for this section?")
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM patients WHERE user_id = ?", (st.session_state.user['user_id'],))
+    patient_id = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM appointments WHERE patient_id = ? AND status = 'Scheduled'", (patient_id,))
+    upcoming_appointments = cursor.fetchone()[0]
+    conn.close()
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f"<div class='metric-card'><div class='metric-label'>Upcoming Appointments</div><div class='metric-value'>{upcoming_appointments}</div></div>", unsafe_allow_html=True)
+    with col2:
+        st.markdown("<div class='metric-card'><div class='metric-label'>Health Score</div><div class='metric-value'>85</div></div>", unsafe_allow_html=True)
+    st.markdown("<div class='card'>Next Steps: Book an appointment or view your medical history.</div>", unsafe_allow_html=True)
+    # AI Health Tips
+    cursor.execute("SELECT blood_type, allergies, chronic_conditions FROM medical_history WHERE patient_id = ?", (patient_id,))
+    health_data = cursor.fetchone()
+    if health_data:
+        blood_type, allergies, conditions = health_data
+        history = f"Blood Type: {blood_type}, Allergies: {allergies}, Conditions: {conditions}"
+        st.markdown("<div class='info-box'>", unsafe_allow_html=True)
+        st.subheader("AI Health Tips")
+        tips = gpt2_health_tips(history)
+        st.markdown(f"{tips}", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    conn.close()
+    general_health_queries()
+
+# Hospital Dashboard
+def hospital_dashboard():
+    st.markdown(f'<div class="hero-section"><img src="{get_trackmyhealth_logo()}" class="header-logo" /><h1>Welcome, {st.session_state.user["name"]}!</h1><p>Manage your patients and appointments.</p></div>', unsafe_allow_html=True)
+    # AI-Generated Image
+    st.markdown("Would you like to generate an image of a professional doctor in a hospital setting for this section?")
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM hospitals WHERE user_id = ?", (st.session_state.user['user_id'],))
+    hospital_id = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM appointments WHERE hospital_id = ? AND status = 'Scheduled'", (hospital_id,))
+    pending_appointments = cursor.fetchone()[0]
+    conn.close()
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f"<div class='metric-card'><div class='metric-label'>Pending Appointments</div><div class='metric-value'>{pending_appointments}</div></div>", unsafe_allow_html=True)
+    with col2:
+        st.markdown("<div class='metric-card'><div class='metric-label'>Patients Today</div><div class='metric-value'>5</div></div>", unsafe_allow_html=True)
+    st.markdown("<div class='card'>Manage appointments or update patient records.</div>", unsafe_allow_html=True)
+    general_health_queries()
+
+# Appointments (Patient)
+def patient_appointments():
+    st.markdown(f'<div class="hero-section"><img src="{get_trackmyhealth_logo()}" class="header-logo" /><h1>Book an Appointment</h1></div>', unsafe_allow_html=True)
+    # AI-Generated Image
+    st.markdown("Would you like to generate an image of a patient booking an appointment at a hospital for this section?")
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM patients WHERE user_id = ?", (st.session_state.user['user_id'],))
+    patient_id = cursor.fetchone()[0]
+    cursor.execute("SELECT id, name, address, phone FROM hospitals WHERE status = 'approved'")
+    hospitals = cursor.fetchall()
+    with st.form("book_appointment_form"):
+        hospital = st.selectbox("Select Hospital", [f"{h[1]} ({h[2]})" for h in hospitals], format_func=lambda x: x.split(" (")[0])
+        hospital_id = next(h[0] for h in hospitals if f"{h[1]} ({h[2]})" == hospital)
+        col1, col2 = st.columns(2)
+        with col1: appointment_date = st.date_input("Date", min_value=datetime.now().date())
+        with col2: appointment_time = st.time_input("Time", value=datetime.now().time().replace(minute=0, second=0))
+        duration = st.slider("Duration (minutes)", 15, 120, 30, 15)
+        reason = st.text_input("Reason for Visit")
+        submitted = st.form_submit_button("Book Appointment")
+        if submitted:
+            if appointment_date and reason:
+                appointment_datetime = datetime.combine(appointment_date, appointment_time).isoformat()
+                current_time = datetime.now().isoformat()
+                try:
+                    cursor.execute('INSERT INTO appointments (patient_id, hospital_id, appointment_date, duration, status, reason, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (patient_id, hospital_id, appointment_datetime, duration, "Scheduled", reason, current_time, current_time))
+                    conn.commit()
+                    st.success(f"Appointment booked with {hospital.split(' (')[0]} on {appointment_date} at {appointment_time}")
+                except sqlite3.Error as e:
+                    st.error(f"Error: {e}")
+            else:
+                st.warning("Please select a date and provide a reason")
+    conn.close()
+    st.markdown("<h3>Upcoming Appointments</h3>", unsafe_allow_html=True)
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT a.id, h.name, a.appointment_date, a.duration, a.status, a.reason FROM appointments a JOIN hospitals h ON a.hospital_id = h.id WHERE a.patient_id = ? AND a.appointment_date >= datetime('now') ORDER BY a.appointment_date ASC", (patient_id,))
+    appointments = cursor.fetchall()
+    if appointments:
+        df = pd.DataFrame([{"ID": a[0], "Hospital": a[1], "Date": a[2].split("T")[0], "Time": a[2].split("T")[1][:5], "Duration": f"{a[3]} min", "Status": a[4], "Reason": a[5]} for a in appointments])
+        st.dataframe(df)
+    else:
+        st.info("No upcoming appointments.")
+    conn.close()
+    general_health_queries()
+
+# Appointments (Hospital)
+def hospital_appointments():
+    st.markdown(f'<div class="hero-section"><img src="{get_trackmyhealth_logo()}" class="header-logo" /><h1>Manage Appointments</h1></div>', unsafe_allow_html=True)
+    # AI-Generated Image
+    st.markdown("Would you like to generate an image of a hospital staff managing appointments for this section?")
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM hospitals WHERE user_id = ?", (st.session_state.user['user_id'],))
+    hospital_id = cursor.fetchone()[0]
+    cursor.execute("SELECT a.id, p.first_name, p.last_name, a.appointment_date, a.duration, a.status, a.reason FROM appointments a JOIN patients p ON a.patient_id = p.id WHERE a.hospital_id = ? ORDER BY a.appointment_date ASC", (hospital_id,))
+    appointments = cursor.fetchall()
+    if appointments:
+        df = pd.DataFrame([{"ID": a[0], "Patient": f"{a[1]} {a[2]}", "Date": a[3].split("T")[0], "Time": a[3].split("T")[1][:5], "Duration": f"{a[4]} min", "Status": a[5], "Reason": a[6]} for a in appointments])
+        st.dataframe(df)
+        selected_appt = st.selectbox("Select Appointment", [f"{a[0]} - {a[1]} {a[2]} ({a[3].split('T')[0]})" for a in appointments])
+        if selected_appt:
+            appt_id = selected_appt.split(" - ")[0]
+            cursor.execute("UPDATE appointments SET status = ? WHERE id = ?", ("Completed", appt_id))
+            conn.commit()
+            st.success(f"Appointment {appt_id} marked as completed")
+    else:
+        st.info("No appointments scheduled.")
+    conn.close()
+    general_health_queries()
+
+# Medical History (Patient)
+def patient_medical_history():
+    st.markdown(f'<div class="hero-section"><img src="{get_trackmyhealth_logo()}" class="header-logo" /><h1>Your Medical History</h1></div>', unsafe_allow_html=True)
+    # AI-Generated Image
+    st.markdown("Would you like to generate an image of a patient reviewing their medical history for this section?")
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM patients WHERE user_id = ?", (st.session_state.user['user_id'],))
+    patient_id = cursor.fetchone()[0]
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    cursor.execute("SELECT blood_type, allergies, chronic_conditions, surgeries, family_history FROM medical_history WHERE patient_id = ?", (patient_id,))
+    history = cursor.fetchone()
+    if history:
+        st.subheader("Medical History")
+        blood_type, allergies, conditions, surgeries, family_history = history
+        st.markdown(f"**Blood Type:** {blood_type}<br>**Allergies:** {allergies}<br>**Chronic Conditions:** {conditions}<br>**Surgeries:** {surgeries if surgeries else 'None'}<br>**Family History:** {family_history if family_history else 'None'}", unsafe_allow_html=True)
+    else:
+        st.info("No medical history available.")
+    cursor.execute("SELECT recorded_date, temperature, blood_pressure, pulse, oxygen_saturation, weight, bmi FROM vital_signs WHERE patient_id = ? ORDER BY recorded_date DESC", (patient_id,))
+    vitals = cursor.fetchall()
+    if vitals:
+        st.subheader("Vital Signs Trends")
+        df = pd.DataFrame([{"Date": v[0].split("T")[0], "Temperature (°F)": v[1], "BP (mmHg)": v[2], "Pulse (bpm)": v[3], "O2 Sat (%)": v[4], "Weight (lbs)": v[5], "BMI": v[6]} for v in vitals])
+        st.line_chart(df.set_index("Date")[["Temperature (°F)", "Pulse (bpm)", "O2 Sat (%)"]])
+        st.line_chart(df.set_index("Date")[["Weight (lbs)", "BMI"]])
+    st.markdown("</div>", unsafe_allow_html=True)
+    conn.close()
+    general_health_queries()
+
+# Medical History (Hospital)
+def hospital_medical_history():
+    st.markdown(f'<div class="hero-section"><img src="{get_trackmyhealth_logo()}" class="header-logo" /><h1>Patient Medical History</h1></div>', unsafe_allow_html=True)
+    # AI-Generated Image
+    st.markdown("Would you like to generate an image of a doctor reviewing a patient's medical history for this section?")
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM hospitals WHERE user_id = ?", (st.session_state.user['user_id'],))
+    hospital_id = cursor.fetchone()[0]
+    cursor.execute("SELECT p.id, p.first_name, p.last_name FROM patients p JOIN appointments a ON p.id = a.patient_id WHERE a.hospital_id = ? GROUP BY p.id", (hospital_id,))
+    patients = cursor.fetchall()
+    if patients:
+        patient = st.selectbox("Select Patient", [f"{p[1]} {p[2]} ({p[0]})" for p in patients], format_func=lambda x: x.split(" (")[0])
+        patient_id = patient.split(" (")[1].rstrip(")")
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        # Medical History
+        cursor.execute("SELECT blood_type, allergies, chronic_conditions, surgeries, family_history FROM medical_history WHERE patient_id = ? AND hospital_id = ?", (patient_id, hospital_id))
+        history = cursor.fetchone()
+        if history:
+            st.subheader("Medical History")
+            blood_type, allergies, conditions, surgeries, family_history = history
+            history_text = f"Blood Type: {blood_type}, Allergies: {allergies}, Conditions: {conditions}, Surgeries: {surgeries if surgeries else 'None'}, Family History: {family_history if family_history else 'None'}"
+            st.markdown(f"**Blood Type:** {blood_type}<br>**Allergies:** {allergies}<br>**Chronic Conditions:** {conditions}<br>**Surgeries:** {surgeries if surgeries else 'None'}<br>**Family History:** {family_history if family_history else 'None'}", unsafe_allow_html=True)
+        # Vital Signs
+        cursor.execute("SELECT recorded_date, temperature, blood_pressure, pulse, oxygen_saturation, weight, bmi FROM vital_signs WHERE patient_id = ? AND hospital_id = ? ORDER BY recorded_date DESC", (patient_id, hospital_id))
+        vitals = cursor.fetchall()
+        if vitals:
+            st.subheader("Vital Signs Trends")
+            df = pd.DataFrame([{"Date": v[0].split("T")[0], "Temperature (°F)": v[1], "BP (mmHg)": v[2], "Pulse (bpm)": v[3], "O2 Sat (%)": v[4], "Weight (lbs)": v[5], "BMI": v[6]} for v in vitals])
+            st.line_chart(df.set_index("Date")[["Temperature (°F)", "Pulse (bpm)", "O2 Sat (%)"]])
+            st.line_chart(df.set_index("Date")[["Weight (lbs)", "BMI"]])
+        # Reports
+        cursor.execute("SELECT file_name, upload_date FROM reports WHERE patient_id = ? AND hospital_id = ?", (patient_id, hospital_id))
+        reports = cursor.fetchall()
+        if reports:
+            st.subheader("Uploaded Reports")
+            df = pd.DataFrame([{"File Name": r[0], "Upload Date": r[1].split("T")[0]} for r in reports])
+            st.dataframe(df)
+        # AI Treatment Suggestions
+        st.subheader("AI Treatment Suggestions")
+        st.markdown("<div class='info-box'>", unsafe_allow_html=True)
+        suggestion = bert_treatment_suggestion(history_text if history else "No history")
+        st.markdown(suggestion, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    else:
+        st.info("No patients available.")
+    conn.close()
+    general_health_queries()
+
+# Upload Patient Details (Hospital)
+def hospital_patient_management():
+    st.markdown(f'<div class="hero-section"><img src="{get_trackmyhealth_logo()}" class="header-logo" /><h1>Patient Management</h1></div>', unsafe_allow_html=True)
+    # AI-Generated Image
+    st.markdown("Would you like to generate an image of a hospital staff adding patient details for this section?")
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM hospitals WHERE user_id = ?", (st.session_state.user['user_id'],))
+    hospital_id = cursor.fetchone()[0]
+    with st.form("add_patient_form"):
+        cols = st.columns(2)
+        with cols[0]: first_name = st.text_input("First Name*")
+        with cols[1]: last_name = st.text_input("Last Name*")
+        cols = st.columns(2)
+        with cols[0]: gender = st.selectbox("Gender", ["Male", "Female", "Other"])
+        with cols[1]: dob = st.date_input("Date of Birth")
+        phone = st.text_input("Phone Number")
+        email = st.text_input("Email")
+        address = st.text_area("Address")
+        cols = st.columns(3)
+        with cols[0]: blood_type = st.selectbox("Blood Type", ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"])
+        with cols[1]: allergies = st.text_input("Allergies")
+        with cols[2]: conditions = st.text_input("Chronic Conditions")
+        submitted = st.form_submit_button("Add Patient")
+        if submitted:
+            if first_name and last_name:
+                patient_id = f"PAT_{uuid.uuid4()[:8]}"
+                user_id = f"USR_PAT_{uuid.uuid4()}"
+                password_hash = hashlib.sha256("patient123".encode()).hexdigest()
+                current_time = datetime.now().isoformat()
+                try:
+                    cursor.execute('INSERT INTO users (id, username, password_hash, role, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (user_id, f"{first_name.lower()}.{last_name.lower()}", password_hash, "patient", f"{first_name} {last_name}", email, current_time, current_time))
+                    cursor.execute('INSERT INTO patients (id, user_id, first_name, last_name, date_of_birth, gender, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (patient_id, user_id, first_name, last_name, dob.isoformat(), gender, current_time, current_time))
+                    cursor.execute('INSERT INTO contact_info (patient_id, phone, email, address, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', (patient_id, phone, email, address, current_time, current_time))
+                    cursor.execute('INSERT INTO medical_history (patient_id, hospital_id, blood_type, allergies, chronic_conditions, uploaded_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', (patient_id, hospital_id, blood_type, allergies, conditions, current_time, current_time))
+                    conn.commit()
+                    st.success(f"Patient {first_name} {last_name} added with ID: {patient_id}")
+                except sqlite3.Error as e:
+                    st.error(f"Error: {e}")
+            else:
+                st.warning("First and last names are required")
+    conn.close()
+    general_health_queries()
+
+# About Page
+def about_page():
+    st.markdown(f'<div class="hero-section"><img src="{get_trackmyhealth_logo()}" class="header-logo" /><h1>About Track My Health</h1></div>', unsafe_allow_html=True)
+    # AI-Generated Image
+    st.markdown("Would you like to generate an image of a healthcare team for the About page?")
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("""
+    **Track My Health** is a premium centralized electronic health record system designed to simplify healthcare management. We empower patients and hospitals with secure, intelligent tools for better care.
+
+    - **Mission**: To revolutionize healthcare with technology.
+    - **Contact**: support@trackmyhealth.com
+    """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+    general_health_queries()
+
+# Main App
+if __name__ == "__main__":
+    initialize_database()
+    if 'authenticated' not in st.session_state:
+        st.session_state.authenticated = False
+        st.session_state.user = None
+        st.session_state.role = None
+    if not st.session_state.authenticated:
+        login_page()
+    else:
+        navigation_option = navigation()
+        if navigation_option == "Dashboard":
+            if st.session_state.role == "patient":
+                patient_dashboard()
+            elif st.session_state.role == "hospital":
+                hospital_dashboard()
+            else:
+                admin_dashboard()
+        elif navigation_option == "Appointments":
+            if st.session_state.role == "patient":
+                patient_appointments()
+            else:
+                hospital_appointments()
+        elif navigation_option == "Medical History":
+            if st.session_state.role == "hospital":
+                hospital_medical_history()
+            elif st.session_state.role == "patient":
+                patient_medical_history()
+            else:
+                st.warning("Medical history access is for patients and hospitals only.")
+        elif navigation_option == "Patient Management" and st.session_state.role == "hospital":
+            hospital_patient_management()
+        elif navigation_option == "Hospital Approvals" and st.session_state.role == "admin":
+            hospital_approvals()
+        elif navigation_option == "About":
+            about_page()
