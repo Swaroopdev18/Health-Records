@@ -256,7 +256,7 @@ def get_trackmyhealth_logo():
         <path d="M25 20 V40 M35 20 V40" stroke="#FFFFFF" stroke-width="2"/>
     </svg>
     '''
-    return "data:image/svg+xml;base64," + base64.b64encode(logo_svg.encode()).hexdigest()
+    return "data:image/svg+xml;base64," + base64.b64encode(logo_svg.encode()).decode()
 
 # Login Page
 def login_page():
