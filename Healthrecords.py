@@ -15,7 +15,7 @@ from transformers import BertTokenizer, BertForSequenceClassification, GPT2Token
 
 # Set page configuration
 st.set_page_config(
-    page_title="Track My Health",
+    page_title="Track My health",
     page_icon="❤️",
     layout="wide",
     initial_sidebar_state="expanded"
