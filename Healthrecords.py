@@ -209,7 +209,7 @@ def initialize_database():
         
         # Demo patient
         patient_user_id = f"USR_PAT_{uuid.uuid4()}"
-        patient_id = f"PAT_{uuid.uuid4()[:8]}"
+        patient_id = f"PAT_{str(uuid.uuid4())[:8]}"
         cursor.execute('INSERT INTO users (id, username, password_hash, role, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (patient_user_id, "patient1", hashlib.sha256("patient123".encode()).hexdigest(), "patient", "John Doe", "john@example.com", current_time, current_time))
         cursor.execute('INSERT INTO patients (id, user_id, first_name, last_name, date_of_birth, gender, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (patient_id, patient_user_id, "John", "Doe", "1980-05-15", "Male", current_time, current_time))
         cursor.execute('INSERT INTO contact_info (patient_id, phone, email, address, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', (patient_id, "5551234567", "john.doe@example.com", "123 Main St", current_time, current_time))
@@ -303,7 +303,7 @@ def login_page():
                         username = f"{first_name.lower()}.{last_name.lower()}"
                         password = "patient123"  # Default password
                         user_id = f"USR_PAT_{uuid.uuid4()}"
-                        patient_id = f"PAT_{uuid.uuid4()[:8]}"
+                        patient_id = f"PAT_{str(uuid.uuid4())[:8]}"
                         password_hash = hash_password(password)
                         current_time = datetime.now().isoformat()
                         conn = sqlite3.connect(DB_FILE)
@@ -332,7 +332,7 @@ def login_page():
                         username = hospital_name.lower().replace(" ", "")
                         password = "hospital123"  # Default password
                         user_id = f"USR_HOS_{uuid.uuid4()}"
-                        hospital_id = f"HOS_{uuid.uuid4()[:8]}"
+                        hospital_id = f"HOS_{str(uuid.uuid4())[:8]}"
                         password_hash = hash_password(password)
                         current_time = datetime.now().isoformat()
                         conn = sqlite3.connect(DB_FILE)
@@ -614,7 +614,7 @@ def hospital_patient_management():
         submitted = st.form_submit_button("Add Patient")
         if submitted:
             if first_name and last_name:
-                patient_id = f"PAT_{uuid.uuid4()[:8]}"
+                patient_id = f"PAT_{str(uuid.uuid4())[:8]}"
                 user_id = f"USR_PAT_{uuid.uuid4()}"
                 password_hash = hashlib.sha256("patient123".encode()).hexdigest()
                 current_time = datetime.now().isoformat()
