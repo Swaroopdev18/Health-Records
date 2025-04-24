@@ -217,7 +217,7 @@ def initialize_database():
         
         # Demo hospital
         hospital_user_id = f"USR_HOS_{uuid.uuid4()}"
-        hospital_id = f"HOS_{uuid.uuid4()[:8]}"
+        hospital_id = f"HOS_{str(uuid.uuid4())[:8]}"
         cursor.execute('INSERT INTO users (id, username, password_hash, role, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (hospital_user_id, "hospital1", hashlib.sha256("hospital123".encode()).hexdigest(), "hospital", "City Hospital", "contact@cityhospital.com", current_time, current_time))
         cursor.execute('INSERT INTO hospitals (id, user_id, name, address, phone, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (hospital_id, hospital_user_id, "City Hospital", "456 Health Ave", "5559876543", "approved", current_time, current_time))
         
