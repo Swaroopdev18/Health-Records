@@ -13,50 +13,53 @@ from PIL import Image
 
 # Set page configuration
 st.set_page_config(
-    page_title="HealthSync EHR",
-    page_icon="🏥",
+    page_title="Track My Health",
+    page_icon="❤️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # Create database directory if it doesn't exist
 os.makedirs("data", exist_ok=True)
-DB_FILE = "data/healthsync_ehr.db"
+DB_FILE = "data/trackmyhealth.db"
 
-# Custom CSS and Google Fonts
+# Custom CSS with Premium Styling
 def local_css():
     st.markdown("""
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&family=Lato:wght@400;500&display=swap" rel="stylesheet">
     <style>
-    .main { background-color: #FFFFFF; color: #1E90FF; }
-    h1, h2, h3 { font-family: 'Bebas Neue', sans-serif; color: #1E90FF; letter-spacing: 1px; }
-    .card { border-radius: 10px; padding: 20px; background-color: #F5F6FA; box-shadow: 0 4px 12px rgba(30, 144, 255, 0.1); margin-bottom: 20px; }
-    .patient-card { background-color: #FFFFFF; border-left: 5px solid #1E90FF; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); margin-bottom: 15px; }
-    .success-box { background-color: #D4EDDA; color: #155724; padding: 15px; border-radius: 5px; border-left: 5px solid #28A745; }
-    .warning-box { background-color: #FFF3CD; color: #856404; padding: 15px; border-radius: 5px; border-left: 5px solid #FFC107; }
-    .info-box { background-color: #CCE5FF; color: #004085; padding: 15px; border-radius: 5px; border-left: 5px solid #1E90FF; }
-    .stButton > button { background-color: #1E90FF; color: white; border-radius: 6px; padding: 10px 24px; font-weight: 500; border: none; transition: all 0.3s ease; font-family: 'Roboto', sans-serif; }
-    .stButton > button:hover { background-color: #187BCD; box-shadow: 0 5px 15px rgba(30, 144, 255, 0.3); }
-    .delete-btn { background-color: #DC3545 !important; }
-    .delete-btn:hover { background-color: #C82333 !important; }
-    .css-1d391kg { background-color: #1E90FF; }
-    .css-1d391kg .sidebar-content { background-color: #1E90FF; }
-    div.stButton > button:first-child { background-color: #1E90FF; color: white; border-radius: 6px; padding: 10px 24px; font-weight: 500; border: none; transition: all 0.3s ease; }
-    div.stButton > button:hover { background-color: #187BCD; box-shadow: 0 5px 15px rgba(30, 144, 255, 0.3); }
-    .st-emotion-cache-16idsys p { font-size: 16px; font-family: 'Roboto', sans-serif; }
-    .st-emotion-cache-1y4p8pa { padding: 15px; border-radius: 0 0 10px 10px; border: 1px solid #E0E0E0; border-top: none; }
-    .st-emotion-cache-1y4p8pa > div:first-child { border-radius: 10px 10px 0 0; overflow: hidden; }
+    .main { background-color: #FFFFFF; color: #28A745; }
+    h1, h2, h3 { font-family: 'Poppins', sans-serif; color: #28A745; letter-spacing: 1px; }
+    p, label, div.stTextInput > div > div > input, div.stSelectbox > div > div > select { font-family: 'Lato', sans-serif; }
+    .hero-section { background: linear-gradient(135deg, #28A745 0%, #FF69B4 100%); padding: 40px; border-radius: 15px; color: white; text-align: center; margin-bottom: 20px; }
+    .card { border-radius: 15px; padding: 20px; background-color: #F8F9FA; box-shadow: 0 6px 12px rgba(40, 167, 69, 0.1); margin-bottom: 20px; transition: transform 0.3s ease; }
+    .card:hover { transform: translateY(-5px); }
+    .patient-card { background-color: #FFFFFF; border-left: 5px solid #28A745; padding: 15px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05); margin-bottom: 15px; }
+    .success-box { background-color: #D4EDDA; color: #155724; padding: 15px; border-radius: 8px; border-left: 5px solid #28A745; }
+    .warning-box { background-color: #FFF3CD; color: #856404; padding: 15px; border-radius: 8px; border-left: 5px solid #FFC107; }
+    .info-box { background-color: #FFE6F0; color: #FF69B4; padding: 15px; border-radius: 8px; border-left: 5px solid #FF69B4; }
+    .stButton > button { background: linear-gradient(90deg, #28A745 0%, #FF69B4 100%); color: white; border-radius: 8px; padding: 12px 24px; font-weight: 500; border: none; transition: all 0.3s ease; font-family: 'Lato', sans-serif; }
+    .stButton > button:hover { background: linear-gradient(90deg, #218838 0%, #FF1493 100%); box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3); }
+    .delete-btn { background: #DC3545 !important; }
+    .delete-btn:hover { background: #C82333 !important; }
+    .css-1d391kg { background: linear-gradient(135deg, #28A745 0%, #FF69B4 100%); }
+    .css-1d391kg .sidebar-content { background: transparent; }
+    div.stButton > button:first-child { background: linear-gradient(90deg, #28A745 0%, #FF69B4 100%); color: white; border-radius: 8px; padding: 12px 24px; font-weight: 500; border: none; transition: all 0.3s ease; }
+    div.stButton > button:hover { background: linear-gradient(90deg, #218838 0%, #FF1493 100%); box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3); }
+    .st-emotion-cache-16idsys p { font-size: 16px; font-family: 'Lato', sans-serif; }
+    .st-emotion-cache-1y4p8pa { padding: 15px; border-radius: 0 0 15px 15px; border: 1px solid #E0E0E0; border-top: none; }
+    .st-emotion-cache-1y4p8pa > div:first-child { border-radius: 15px 15px 0 0; overflow: hidden; }
     .dataframe { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-    .dataframe th { background-color: #1E90FF; color: white; padding: 12px; text-align: left; font-family: 'Roboto', sans-serif; }
-    .dataframe td { padding: 12px; border-bottom: 1px solid #E0E0E0; font-family: 'Roboto', sans-serif; }
-    .dataframe tr:nth-child(even) { background-color: #F5F6FA; }
+    .dataframe th { background: linear-gradient(90deg, #28A745 0%, #FF69B4 100%); color: white; padding: 12px; text-align: left; font-family: 'Lato', sans-serif; }
+    .dataframe td { padding: 12px; border-bottom: 1px solid #E0E0E0; font-family: 'Lato', sans-serif; }
+    .dataframe tr:nth-child(even) { background-color: #F8F9FA; }
     .dataframe tr:hover { background-color: #E9ECEF; }
-    .header-container { display: flex; align-items: center; padding: 1rem; background-color: #FFFFFF; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(30, 144, 255, 0.1); }
-    .header-logo { width: 50px; margin-right: 15px; }
-    .header-title { font-size: 2.5rem; font-weight: 700; color: #1E90FF; margin: 0; }
-    .metric-card { background-color: #FFFFFF; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); text-align: center; }
-    .metric-value { font-size: 2rem; font-weight: 700; color: #1E90FF; margin: 10px 0; }
-    .metric-label { font-size: 1rem; color: #6C757D; font-family: 'Roboto', sans-serif; }
+    .header-container { display: flex; align-items: center; padding: 1.5rem; background-color: #FFFFFF; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 6px 12px rgba(40, 167, 69, 0.1); }
+    .header-logo { width: 60px; margin-right: 15px; }
+    .header-title { font-size: 2.5rem; font-weight: 700; color: #28A745; margin: 0; }
+    .metric-card { background-color: #FFFFFF; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05); text-align: center; }
+    .metric-value { font-size: 2rem; font-weight: 700; color: #28A745; margin: 10px 0; }
+    .metric-label { font-size: 1rem; color: #6C757D; font-family: 'Lato', sans-serif; }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     </style>
@@ -70,13 +73,13 @@ def initialize_database():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # Users table (for patients and hospitals)
+    # Users table (for patients, hospitals, admin)
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
-        role TEXT NOT NULL CHECK(role IN ('patient', 'hospital')),
+        role TEXT NOT NULL CHECK(role IN ('patient', 'hospital', 'admin')),
         name TEXT,
         email TEXT,
         created_at TIMESTAMP,
@@ -107,6 +110,7 @@ def initialize_database():
         name TEXT NOT NULL,
         address TEXT NOT NULL,
         phone TEXT,
+        status TEXT CHECK(status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
         created_at TIMESTAMP,
         updated_at TIMESTAMP
     )
@@ -198,21 +202,24 @@ def initialize_database():
     # Insert demo data
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
+        current_time = datetime.now().isoformat()
+        # Demo admin
+        admin_user_id = f"USR_ADM_{uuid.uuid4()}"
+        cursor.execute('INSERT INTO users (id, username, password_hash, role, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (admin_user_id, "admin", hashlib.sha256("admin123".encode()).hexdigest(), "admin", "Admin User", "admin@trackmyhealth.com", current_time, current_time))
+        
         # Demo patient
         patient_user_id = f"USR_PAT_{uuid.uuid4()}"
-        patient_id = f"PAT_{str(uuid.uuid4())[:8]}"
-        password_hash = hashlib.sha256("patient123".encode()).hexdigest()
-        current_time = datetime.now().isoformat()
-        cursor.execute('INSERT INTO users (id, username, password_hash, role, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (patient_user_id, "patient1", password_hash, "patient", "John Doe", "john@example.com", current_time, current_time))
+        patient_id = f"PAT_{uuid.uuid4()[:8]}"
+        cursor.execute('INSERT INTO users (id, username, password_hash, role, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (patient_user_id, "patient1", hashlib.sha256("patient123".encode()).hexdigest(), "patient", "John Doe", "john@example.com", current_time, current_time))
         cursor.execute('INSERT INTO patients (id, user_id, first_name, last_name, date_of_birth, gender, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (patient_id, patient_user_id, "John", "Doe", "1980-05-15", "Male", current_time, current_time))
         cursor.execute('INSERT INTO contact_info (patient_id, phone, email, address, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', (patient_id, "5551234567", "john.doe@example.com", "123 Main St", current_time, current_time))
+        cursor.execute('INSERT INTO medical_history (patient_id, hospital_id, blood_type, allergies, chronic_conditions, uploaded_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', (patient_id, None, "A+", "Pollen", "Hypertension", current_time, current_time))
         
         # Demo hospital
         hospital_user_id = f"USR_HOS_{uuid.uuid4()}"
-        hospital_id = f"HOS_{str(uuid.uuid4())[:8]}"
-        password_hash = hashlib.sha256("hospital123".encode()).hexdigest()
-        cursor.execute('INSERT INTO users (id, username, password_hash, role, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (hospital_user_id, "hospital1", password_hash, "hospital", "City Hospital", "contact@cityhospital.com", current_time, current_time))
-        cursor.execute('INSERT INTO hospitals (id, user_id, name, address, phone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', (hospital_id, hospital_user_id, "City Hospital", "456 Health Ave", "5559876543", current_time, current_time))
+        hospital_id = f"HOS_{uuid.uuid4()[:8]}"
+        cursor.execute('INSERT INTO users (id, username, password_hash, role, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (hospital_user_id, "hospital1", hashlib.sha256("hospital123".encode()).hexdigest(), "hospital", "City Hospital", "contact@cityhospital.com", current_time, current_time))
+        cursor.execute('INSERT INTO hospitals (id, user_id, name, address, phone, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (hospital_id, hospital_user_id, "City Hospital", "456 Health Ave", "5559876543", "approved", current_time, current_time))
         
         # Demo appointment
         cursor.execute('INSERT INTO appointments (patient_id, hospital_id, appointment_date, duration, status, reason, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (patient_id, hospital_id, (datetime.now() + timedelta(days=1)).isoformat(), 30, "Scheduled", "Check-up", current_time, current_time))
@@ -241,32 +248,24 @@ def update_last_login(user_id):
     conn.close()
 
 # Logo
-def get_healthsync_logo():
+def get_trackmyhealth_logo():
     logo_svg = '''
-    <svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
-        <rect x="0" y="0" width="50" height="50" rx="10" fill="#1E90FF"/>
-        <path d="M15 15 L35 35 M15 35 L35 15" stroke="white" stroke-width="4"/>
-        <path d="M25 10 V40" stroke="white" stroke-width="2" stroke-dasharray="5"/>
+    <svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="30" cy="30" r="30" fill="#28A745"/>
+        <path d="M15 30 Q30 10 45 30 Q30 50 15 30 Z" fill="#FF69B4" stroke="#FFFFFF" stroke-width="2"/>
+        <path d="M25 20 V40 M35 20 V40" stroke="#FFFFFF" stroke-width="2"/>
     </svg>
     '''
-    return "data:image/svg+xml;base64," + base64.b64encode(logo_svg.encode()).decode()
+    return "data:image/svg+xml;base64," + base64.b64encode(logo_svg.encode()).hexdigest()
 
 # Login Page
 def login_page():
+    st.markdown(f'<div class="hero-section"><h1>Track My Health</h1><p>Your trusted partner in centralized health records.</p></div>', unsafe_allow_html=True)
     col1, col2 = st.columns([1, 1])
     with col1:
-        st.markdown(f'<div class="header-container"><img src="{get_healthsync_logo()}" class="header-logo" /><h1 class="header-title">HealthSync EHR</h1></div>', unsafe_allow_html=True)
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.markdown("### Welcome to HealthSync EHR")
-        st.markdown("A centralized electronic health record system designed to replace physical reports, simplify diagnosis, and enhance understanding with AI-powered insights.")
-        st.markdown("#### Key Features:")
-        st.markdown("• Patient & Hospital Portals<br>• Appointment Booking<br>• Medical History Visualization<br>• Predictive Health Insights", unsafe_allow_html=True)
-        st.markdown("<div class='info-box'>New users? Contact admin to register.</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-    with col2:
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.subheader("Login")
-        role = st.selectbox("Login as", ["Patient", "Hospital"])
+        role = st.selectbox("Login as", ["Patient", "Hospital", "Admin"])
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         if st.button("Login"):
@@ -282,20 +281,124 @@ def login_page():
                     st.error("Invalid credentials or role mismatch")
             else:
                 st.warning("Please enter username and password")
-        st.markdown("<div class='info-box'>Demo Credentials:<br>Patient: patient1 / patient123<br>Hospital: hospital1 / hospital123</div>", unsafe_allow_html=True)
+        st.markdown("<div class='info-box'>Demo Credentials:<br>Patient: patient1 / patient123<br>Hospital: hospital1 / hospital123<br>Admin: admin / admin123</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    with col2:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("New User? Register Here")
+        reg_role = st.selectbox("Register as", ["Patient", "Hospital"])
+        if reg_role == "Patient":
+            with st.form("patient_register_form"):
+                cols = st.columns(2)
+                with cols[0]: first_name = st.text_input("First Name*")
+                with cols[1]: last_name = st.text_input("Last Name*")
+                cols = st.columns(2)
+                with cols[0]: gender = st.selectbox("Gender", ["Male", "Female", "Other"])
+                with cols[1]: dob = st.date_input("Date of Birth")
+                email = st.text_input("Email*")
+                phone = st.text_input("Phone Number*")
+                submitted = st.form_submit_button("Register")
+                if submitted:
+                    if first_name and last_name and email and phone:
+                        username = f"{first_name.lower()}.{last_name.lower()}"
+                        password = "patient123"  # Default password
+                        user_id = f"USR_PAT_{uuid.uuid4()}"
+                        patient_id = f"PAT_{uuid.uuid4()[:8]}"
+                        password_hash = hash_password(password)
+                        current_time = datetime.now().isoformat()
+                        conn = sqlite3.connect(DB_FILE)
+                        cursor = conn.cursor()
+                        try:
+                            cursor.execute('INSERT INTO users (id, username, password_hash, role, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (user_id, username, password_hash, "patient", f"{first_name} {last_name}", email, current_time, current_time))
+                            cursor.execute('INSERT INTO patients (id, user_id, first_name, last_name, date_of_birth, gender, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (patient_id, user_id, first_name, last_name, dob.isoformat(), gender, current_time, current_time))
+                            cursor.execute('INSERT INTO contact_info (patient_id, phone, email, address, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', (patient_id, phone, email, "", current_time, current_time))
+                            conn.commit()
+                            st.success(f"Registration successful! Username: {username}, Password: {password}")
+                        except sqlite3.Error as e:
+                            st.error(f"Error: {e}")
+                        finally:
+                            conn.close()
+                    else:
+                        st.warning("Please fill all required fields")
+        else:
+            with st.form("hospital_register_form"):
+                hospital_name = st.text_input("Hospital Name*")
+                address = st.text_area("Address*")
+                phone = st.text_input("Phone Number*")
+                email = st.text_input("Email*")
+                submitted = st.form_submit_button("Submit for Approval")
+                if submitted:
+                    if hospital_name and address and phone and email:
+                        username = hospital_name.lower().replace(" ", "")
+                        password = "hospital123"  # Default password
+                        user_id = f"USR_HOS_{uuid.uuid4()}"
+                        hospital_id = f"HOS_{uuid.uuid4()[:8]}"
+                        password_hash = hash_password(password)
+                        current_time = datetime.now().isoformat()
+                        conn = sqlite3.connect(DB_FILE)
+                        cursor = conn.cursor()
+                        try:
+                            cursor.execute('INSERT INTO users (id, username, password_hash, role, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (user_id, username, password_hash, "hospital", hospital_name, email, current_time, current_time))
+                            cursor.execute('INSERT INTO hospitals (id, user_id, name, address, phone, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (hospital_id, user_id, hospital_name, address, phone, "pending", current_time, current_time))
+                            conn.commit()
+                            st.success("Registration submitted for admin approval. You’ll be notified once approved.")
+                        except sqlite3.Error as e:
+                            st.error(f"Error: {e}")
+                        finally:
+                            conn.close()
+                    else:
+                        st.warning("Please fill all required fields")
         st.markdown("</div>", unsafe_allow_html=True)
 
 # Navigation
 def navigation():
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.markdown(f'<div class="header-container"><img src="{get_healthsync_logo()}" class="header-logo" /><h1 class="header-title">HealthSync EHR</h1></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="header-container"><img src="data:image/svg+xml;base64,{get_trackmyhealth_logo()}" class="header-logo" /><h1 class="header-title">Track My Health</h1></div>', unsafe_allow_html=True)
     with col2:
         st.markdown(f"<div style='text-align: right; padding: 10px;'><b>{st.session_state.user['name']}</b> ({st.session_state.role.capitalize()}) | <a href='#' onclick='window.location.reload()'>Logout</a></div>", unsafe_allow_html=True)
     menu = ["Dashboard", "Appointments", "Medical History", "Reports", "About"]
     if st.session_state.role == "hospital":
         menu.append("Patient Management")
+    elif st.session_state.role == "admin":
+        menu = ["Admin Dashboard", "Hospital Approvals"]
     return st.sidebar.selectbox("Menu", menu)
+
+# Admin Dashboard
+def admin_dashboard():
+    st.header("Admin Dashboard")
+    st.markdown("<div class='card'>Welcome to the Admin Dashboard. Manage hospital registrations and system settings.</div>", unsafe_allow_html=True)
+
+# Hospital Approvals (Admin)
+def hospital_approvals():
+    st.header("Hospital Registration Approvals")
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, user_id, name, address, phone, email, status FROM hospitals WHERE status = 'pending'")
+    pending_hospitals = cursor.fetchall()
+    if pending_hospitals:
+        for hospital in pending_hospitals:
+            hospital_id, user_id, name, address, phone, email, status = hospital
+            st.markdown(f"<div class='card'>", unsafe_allow_html=True)
+            st.markdown(f"**Hospital:** {name}<br>**Address:** {address}<br>**Phone:** {phone}<br>**Email:** {email}<br>**Status:** {status}", unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button(f"Approve {name}", key=f"approve_{hospital_id}"):
+                    cursor.execute("UPDATE hospitals SET status = 'approved' WHERE id = ?", (hospital_id,))
+                    conn.commit()
+                    st.success(f"{name} approved successfully")
+                    st.experimental_rerun()
+            with col2:
+                if st.button(f"Reject {name}", key=f"reject_{hospital_id}"):
+                    cursor.execute("UPDATE hospitals SET status = 'rejected' WHERE id = ?", (hospital_id,))
+                    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+                    conn.commit()
+                    st.success(f"{name} rejected and removed")
+                    st.experimental_rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+    else:
+        st.info("No pending hospital registrations.")
+    conn.close()
 
 # Patient Dashboard
 def patient_dashboard():
@@ -313,6 +416,19 @@ def patient_dashboard():
     with col2:
         st.markdown("<div class='metric-card'><div class='metric-label'>Health Score</div><div class='metric-value'>85</div></div>", unsafe_allow_html=True)  # Placeholder
     st.markdown("<div class='card'>Next Steps: Book an appointment or upload reports.</div>", unsafe_allow_html=True)
+    # AI Health Tips
+    cursor.execute("SELECT blood_type, allergies, chronic_conditions FROM medical_history WHERE patient_id = ?", (patient_id,))
+    health_data = cursor.fetchone()
+    if health_data:
+        blood_type, allergies, conditions = health_data
+        st.markdown("<div class='info-box'>", unsafe_allow_html=True)
+        st.subheader("AI Health Tips")
+        if conditions == "Hypertension":
+            st.markdown("• Monitor your blood pressure daily.<br>• Reduce salt intake and stay active.", unsafe_allow_html=True)
+        if allergies == "Pollen":
+            st.markdown("• Avoid outdoor activities during high pollen seasons.<br>• Keep windows closed.", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    conn.close()
 
 # Hospital Dashboard
 def hospital_dashboard():
@@ -338,7 +454,7 @@ def patient_appointments():
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM patients WHERE user_id = ?", (st.session_state.user['user_id'],))
     patient_id = cursor.fetchone()[0]
-    cursor.execute("SELECT id, name, address, phone FROM hospitals")
+    cursor.execute("SELECT id, name, address, phone FROM hospitals WHERE status = 'approved'")
     hospitals = cursor.fetchall()
     with st.form("book_appointment_form"):
         hospital = st.selectbox("Select Hospital", [f"{h[1]} ({h[2]})" for h in hospitals], format_func=lambda x: x.split(" (")[0])
@@ -408,19 +524,40 @@ def hospital_medical_history():
     if patients:
         patient = st.selectbox("Select Patient", [f"{p[1]} {p[2]} ({p[0]})" for p in patients], format_func=lambda x: x.split(" (")[0])
         patient_id = patient.split(" (")[1].rstrip(")")
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        # Medical History
+        cursor.execute("SELECT blood_type, allergies, chronic_conditions, surgeries, family_history FROM medical_history WHERE patient_id = ? AND hospital_id = ?", (patient_id, hospital_id))
+        history = cursor.fetchone()
+        if history:
+            st.subheader("Medical History")
+            blood_type, allergies, conditions, surgeries, family_history = history
+            st.markdown(f"**Blood Type:** {blood_type}<br>**Allergies:** {allergies}<br>**Chronic Conditions:** {conditions}<br>**Surgeries:** {surgeries if surgeries else 'None'}<br>**Family History:** {family_history if family_history else 'None'}", unsafe_allow_html=True)
+        # Vital Signs
         cursor.execute("SELECT recorded_date, temperature, blood_pressure, pulse, oxygen_saturation, weight, bmi FROM vital_signs WHERE patient_id = ? AND hospital_id = ? ORDER BY recorded_date DESC", (patient_id, hospital_id))
         vitals = cursor.fetchall()
         if vitals:
+            st.subheader("Vital Signs Trends")
             df = pd.DataFrame([{"Date": v[0].split("T")[0], "Temperature (°F)": v[1], "BP (mmHg)": v[2], "Pulse (bpm)": v[3], "O2 Sat (%)": v[4], "Weight (lbs)": v[5], "BMI": v[6]} for v in vitals])
             st.line_chart(df.set_index("Date")[["Temperature (°F)", "Pulse (bpm)", "O2 Sat (%)"]])
             st.line_chart(df.set_index("Date")[["Weight (lbs)", "BMI"]])
-            # AI Suggestion (Placeholder)
-            st.markdown("<div class='info-box'>AI Suggestion: Based on trends, monitor blood pressure and consider a dietary plan.</div>", unsafe_allow_html=True)
-            # Predictive Health Insights
-            st.subheader("Predictive Health Insights")
-            st.markdown("<div class='card'>AI predicts a 20% risk of hypertension based on BMI and BP trends. Recommend regular check-ups.</div>", unsafe_allow_html=True)
+        # Reports
+        cursor.execute("SELECT file_name, upload_date FROM reports WHERE patient_id = ? AND hospital_id = ?", (patient_id, hospital_id))
+        reports = cursor.fetchall()
+        if reports:
+            st.subheader("Uploaded Reports")
+            df = pd.DataFrame([{"File Name": r[0], "Upload Date": r[1].split("T")[0]} for r in reports])
+            st.dataframe(df)
+        # AI Treatment Suggestions
+        st.subheader("AI Treatment Suggestions")
+        st.markdown("<div class='info-box'>", unsafe_allow_html=True)
+        if history and history[2] == "Hypertension":
+            st.markdown("• **Diagnosis:** Patient shows signs of hypertension.<br>• **Treatment:** Prescribe ACE inhibitors (e.g., Lisinopril 10 mg daily).<br>• **Lifestyle:** Recommend low-sodium diet and regular exercise.", unsafe_allow_html=True)
         else:
-            st.info("No medical history available.")
+            st.markdown("• No critical conditions detected. Continue monitoring vitals.", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    else:
+        st.info("No patients available.")
     conn.close()
 
 # Upload Reports (Patient)
@@ -479,7 +616,7 @@ def hospital_patient_management():
             if first_name and last_name:
                 patient_id = f"PAT_{uuid.uuid4()[:8]}"
                 user_id = f"USR_PAT_{uuid.uuid4()}"
-                password_hash = hashlib.sha256("patient123".encode()).hexdigest()  # Default password
+                password_hash = hashlib.sha256("patient123".encode()).hexdigest()
                 current_time = datetime.now().isoformat()
                 try:
                     cursor.execute('INSERT INTO users (id, username, password_hash, role, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (user_id, f"{first_name.lower()}.{last_name.lower()}", password_hash, "patient", f"{first_name} {last_name}", email, current_time, current_time))
@@ -496,14 +633,13 @@ def hospital_patient_management():
 
 # About Page
 def about_page():
-    st.header("About HealthSync EHR")
+    st.header("About Track My Health")
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.markdown("""
-    **HealthSync EHR** is a revolutionary centralized electronic health record system designed to eliminate physical reports, streamline diagnosis, and enhance patient care with AI-powered insights. Our unique **Predictive Health Insights** feature analyzes trends to predict health risks and suggest preventive measures, setting us apart globally.
+    **Track My Health** is a premium centralized electronic health record system designed to simplify healthcare management. We empower patients and hospitals with secure, intelligent tools for better care.
 
-    - **Mission**: To provide accessible, secure, and intelligent healthcare management.
-    - **Features**: Dual portals, visual diagnostics, appointment booking, and more.
-    - **Contact**: support@healthsync.com
+    - **Mission**: To revolutionize healthcare with technology.
+    - **Contact**: support@trackmyhealth.com
     """, unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -519,8 +655,10 @@ if __name__ == "__main__":
         if navigation_option == "Dashboard":
             if st.session_state.role == "patient":
                 patient_dashboard()
-            else:
+            elif st.session_state.role == "hospital":
                 hospital_dashboard()
+            else:
+                admin_dashboard()
         elif navigation_option == "Appointments":
             if st.session_state.role == "patient":
                 patient_appointments()
@@ -538,5 +676,7 @@ if __name__ == "__main__":
                 st.warning("Report upload is for patients only.")
         elif navigation_option == "Patient Management" and st.session_state.role == "hospital":
             hospital_patient_management()
+        elif navigation_option == "Hospital Approvals" and st.session_state.role == "admin":
+            hospital_approvals()
         elif navigation_option == "About":
             about_page()
