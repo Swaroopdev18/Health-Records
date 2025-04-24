@@ -4,5 +4,3 @@ sqlite3
 matplotlib
 altair
 pillow
-torch
-transformers
